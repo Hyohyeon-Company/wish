@@ -6,6 +6,11 @@
     "node": ">=24 <25"
   },
   "packageManager": "pnpm@12.18.0",
+  "pnpm": {
+    "ignoredBuiltDependencies": [
+      "@parcel/watcher"
+    ]
+  },
   "scripts": {
     "lint": "pnpm -r --if-present run lint",
     "typecheck": "pnpm -r --if-present run typecheck",
