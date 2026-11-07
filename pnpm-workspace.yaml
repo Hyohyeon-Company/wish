@@ -1,3 +1,8 @@
 packages:
   - apps/*
   - packages/*
+# esbuild's postinstall verifies/installs its platform binary; vite and
+# vitest depend on it (apps/web toolchain, C1-F). pnpm 12 blocks dependency
+# lifecycle scripts unless allow-listed here.
+allowBuilds:
+  esbuild: true

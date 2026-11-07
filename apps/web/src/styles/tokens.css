@@ -1,0 +1,51 @@
+/*
+ * Design tokens — 1:1 with design-system-v1.md (t_8db2c17c).
+ * §2 color tokens, §3 typography scale and stack, §4 spacing/radius.
+ * No values are invented here: every token below is copied from the design
+ * system document, which is the review reference for token conformance.
+ */
+:root {
+  /* §2 color */
+  --bg: #0f1014;
+  --surface: #16171d;
+  --surface-2: #1e1f26;
+  --border: #2a2b33;
+  --text-1: #f2f3f5;
+  --text-2: #c3c5cc;
+  --text-3: #9a9eab;
+  --brand: #a78bfa;
+  --brand-strong: #c4b5fd;
+  --brand-deep: #7c3aed;
+  --on-brand: #17102a;
+  --success: #34d399;
+  --warning: #fbbf24;
+  --danger: #ff6b6b;
+  --trust: #67e8f9;
+
+  /* §3 typography */
+  --font-stack: -apple-system, BlinkMacSystemFont, 'Pretendard Variable',
+    Pretendard, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans',
+    sans-serif;
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-md: 15px;
+  --fs-lg: 16px;
+  --fs-xl: 18px;
+  --fs-2xl: 22px;
+  --fs-price: 24px;
+
+  /* §4 spacing scale (4px multiples) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+
+  /* §4 shape */
+  --radius-button: 6px;
+  --radius-card: 10px;
+  --radius-sheet: 14px;
+}

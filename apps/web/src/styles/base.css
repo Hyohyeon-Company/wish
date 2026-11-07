@@ -1,0 +1,194 @@
+/*
+ * Base styles for the auth screens slice, built only on the design tokens
+ * (design-system-v1 §2/§3/§4/§5): dark surfaces, primary CTA fill, focus
+ * ring, 44px touch targets, error text in --danger. Component specs follow
+ * §5 (button: --brand fill + --on-brand text, radius 6px, height 44px,
+ * disabled 40% opacity; inputs: --surface-2 fill).
+ */
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text-1);
+  font-family: var(--font-stack);
+  font-size: var(--fs-md);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--brand);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--brand-strong);
+}
+
+/* Focus ring: 2px --brand-strong outline + 2px offset (§6 accessibility). */
+:focus-visible {
+  outline: 2px solid var(--brand-strong);
+  outline-offset: 2px;
+}
+
+/* --- auth sheet layout ---------------------------------------------- */
+
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+}
+
+.auth-sheet {
+  width: 100%;
+  max-width: 360px;
+  background: var(--surface);
+  border-radius: var(--radius-sheet);
+  padding: var(--space-8) var(--space-6);
+}
+
+.auth-wordmark {
+  color: var(--brand-strong);
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-align: center;
+  margin: 0 0 var(--space-2);
+}
+
+.auth-title {
+  color: var(--text-1);
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  text-align: center;
+  margin: 0 0 var(--space-6);
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.auth-label {
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+
+.auth-input {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-button);
+  color: var(--text-1);
+  font-family: var(--font-stack);
+  font-size: var(--fs-lg);
+  height: 44px; /* touch target ≥44px (§6) */
+  padding: 0 var(--space-3);
+  width: 100%;
+}
+
+.auth-input::placeholder {
+  color: var(--text-3);
+}
+
+.auth-input[aria-invalid='true'] {
+  border-color: var(--danger);
+}
+
+.auth-field-error {
+  color: var(--danger);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+}
+
+.auth-form-error {
+  color: var(--danger);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  margin: 0;
+}
+
+/* Primary button per §5: --brand fill + --on-brand text, radius 6px,
+ * height 44px, disabled at 40% opacity. */
+.button-primary {
+  background: var(--brand);
+  border: none;
+  border-radius: var(--radius-button);
+  color: var(--on-brand);
+  cursor: pointer;
+  font-family: var(--font-stack);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  height: 44px;
+  padding: 0 var(--space-4);
+  width: 100%;
+}
+
+.button-primary:hover:not(:disabled) {
+  background: var(--brand-strong);
+}
+
+.button-primary:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.auth-footer {
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  margin: var(--space-6) 0 0;
+  text-align: center;
+}
+
+/* --- minimal authenticated landing (not home-v1; C3 owns the feed) --- */
+
+.landing {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+}
+
+.landing-sheet {
+  width: 100%;
+  max-width: 360px;
+  background: var(--surface);
+  border-radius: var(--radius-sheet);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.landing-greeting {
+  color: var(--text-1);
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  margin: 0;
+}
+
+.landing-meta {
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  margin: 0;
+}
