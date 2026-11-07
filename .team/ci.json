@@ -1,0 +1,13 @@
+{
+  "schema": "team-ci/v1",
+  "checks": {
+    "lint": {"script": "lint"},
+    "typecheck": {"script": "typecheck"},
+    "test:unit": {"script": "test:unit"},
+    "test:integration": {"script": "test:integration"},
+    "build": {"script": "build"},
+    "test:e2e": {"script": "test:e2e"},
+    "test:security": {"script": "test:security"},
+    "test:operations": {"script": "test:operations"}
+  }
+}
