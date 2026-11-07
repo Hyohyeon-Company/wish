@@ -1,0 +1,61 @@
+name: Domain work
+description: Feature, bug, refactor, infrastructure or verification work
+title: "[domain] concise outcome"
+body:
+  - type: markdown
+    attributes:
+      value: "Public record: use sanitized technical context. Never include credentials, private conversations, raw production logs or exploit details."
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Work type
+      options: [Feature, Bug, Refactor, Infrastructure, Verification, Documentation]
+    validations:
+      required: true
+  - type: input
+    id: domain
+    attributes:
+      label: Domain or service
+      description: The business capability or operational component affected.
+    validations:
+      required: true
+  - type: dropdown
+    id: owner
+    attributes:
+      label: Implementing profile
+      options: [team-backend, team-frontend, team-devops]
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Problem and expected behavior
+      description: For a bug, include reproducible inputs, actual behavior and expected behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and non-goals
+      description: Bound the change and explain dependencies or contracts with other owners.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Observable acceptance criteria
+      description: Include relevant domain invariants, denied actions and failure cases.
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification and delivery impact
+      description: Intended checks, migration or API/UI impact, rollback limits and sanitized evidence references.
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Related Issues and planned PR slices
+      description: Link prerequisites; mark partial PRs with Refs and use Closes only for the final complete change.
