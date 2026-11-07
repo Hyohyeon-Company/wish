@@ -1,0 +1,27 @@
+node_modules/
+.pnpm-store/
+dist/
+build/
+.next/
+coverage/
+test-results/
+playwright-report/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.log
+.DS_Store
+__pycache__/
+*.pyc
+# Runtime state and data are never part of the public application repository.
+data/
+backups/
+secrets/
+.hermes/
+.omh/
+approvals/
+artifacts/
+TEAM_SETUP.json
+TEAM_CAPABILITIES.json
