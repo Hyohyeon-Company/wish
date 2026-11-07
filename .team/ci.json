@@ -6,14 +6,12 @@
     "test:unit": { "script": "test:unit" },
     "build": { "script": "build" },
     "test:security": { "script": "test:security" },
+    "test:e2e": { "script": "test:e2e" },
     "test:integration": {
-      "not_applicable": "No backend service, external client or database integration exists in the scaffold workspace yet; this check is enabled with the first integration-bearing package."
-    },
-    "test:e2e": {
-      "not_applicable": "No runnable application or e2e target exists in the scaffold workspace yet; this check is enabled when the first app package lands."
+      "not_applicable": "This slice persists members behind a repository port with an in-process adapter; no MySQL adapter, external service or migration exists yet. Real isolated MySQL/API integration is enabled with the first database-backed slice."
     },
     "test:operations": {
-      "not_applicable": "No operations surface (database, monitoring, jobs) exists in the scaffold workspace yet; this check is enabled with the first operational component."
+      "not_applicable": "No operations surface (database, Docker composition, monitoring, jobs) exists yet; this check is enabled with the first operational component (planned with the MySQL slice)."
     }
   }
 }
