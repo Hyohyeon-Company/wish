@@ -1,0 +1,4 @@
+# Replace with an actual Reviewer account/team with repository write access.
+# Activate as CODEOWNERS together with required code-owner review on main.
+# This example is not active and its placeholder grants no approval authority.
+* @REPLACE_ORG/REPLACE_REVIEWER_TEAM
