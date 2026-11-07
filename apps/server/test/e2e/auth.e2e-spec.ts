@@ -228,3 +228,42 @@ describe('protected endpoints without/with broken credentials', () => {
     expect(response.body).toEqual({ code: 'UNAUTHORIZED', message: '로그인이 필요해요.' });
   });
 });
+
+describe('framework-level client errors stay contract-shaped (§2-0)', () => {
+  let app: INestApplication;
+  let server: Server;
+
+  beforeAll(async () => {
+    process.env.AUTH_TOKEN_TTL_SECONDS = '3600';
+    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    app = moduleRef.createNestApplication();
+    await app.init();
+    server = app.getHttpServer() as Server;
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('answers a malformed JSON body with 400 VALIDATION_FAILED, not 500', async () => {
+    const response = await request(server)
+      .post('/api/auth/signup')
+      .set('Content-Type', 'application/json')
+      .send('{"email": not-json')
+      .expect(400);
+    expect(response.body).toEqual({
+      code: 'VALIDATION_FAILED',
+      message: '요청 본문을 확인해 주세요.',
+    });
+  });
+
+  it('answers an unknown route with 404 NOT_FOUND, not 500', async () => {
+    const response = await request(server).get('/api/unknown').expect(404);
+    expect(response.body).toEqual({ code: 'NOT_FOUND', message: '요청을 찾을 수 없어요.' });
+  });
+
+  it('answers an unsupported method on a known route with 404 NOT_FOUND, not 500', async () => {
+    const response = await request(server).delete('/api/auth/signup').expect(404);
+    expect(response.body).toEqual({ code: 'NOT_FOUND', message: '요청을 찾을 수 없어요.' });
+  });
+});
