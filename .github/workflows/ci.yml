@@ -1,0 +1,47 @@
+# Team CI for Hyohyeon-Company/wish.
+#
+# Recorded deviation from delivery_policy.json ci.execution (2026-11-07 user
+# decision): until a server PC binding exists for this project, CI runs on
+# GitHub-hosted runners (ubuntu-latest) instead of the disposable self-hosted
+# VM from the public template. Hosted runners are ephemeral, hold no
+# production credentials, and this workflow requests only contents: read.
+name: Team CI
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: team-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  ci:
+    name: team-ci
+    if: >-
+      github.event_name == 'push' ||
+      (github.event.pull_request.head.repo.full_name == github.repository &&
+       github.event.pull_request.draft == false)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      # actions/checkout v7.0.1 — full commit SHA verified against the official
+      # release tag via git ls-remote and the GitHub tag API (type: commit),
+      # 2026-11-07.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # actions/setup-node v7.1.0 — SHA verified the same way, 2026-11-07.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - name: Install pinned pnpm
+        run: npm install -g pnpm@12.18.0
+      - name: Validate required checks and pins
+        run: node .team/run-ci.mjs --validate
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Execute common checks
+        run: node .team/run-ci.mjs

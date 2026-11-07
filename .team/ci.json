@@ -1,13 +1,19 @@
 {
   "schema": "team-ci/v1",
   "checks": {
-    "lint": {"script": "lint"},
-    "typecheck": {"script": "typecheck"},
-    "test:unit": {"script": "test:unit"},
-    "test:integration": {"script": "test:integration"},
-    "build": {"script": "build"},
-    "test:e2e": {"script": "test:e2e"},
-    "test:security": {"script": "test:security"},
-    "test:operations": {"script": "test:operations"}
+    "lint": { "script": "lint" },
+    "typecheck": { "script": "typecheck" },
+    "test:unit": { "script": "test:unit" },
+    "build": { "script": "build" },
+    "test:security": { "script": "test:security" },
+    "test:integration": {
+      "not_applicable": "No backend service, external client or database integration exists in the scaffold workspace yet; this check is enabled with the first integration-bearing package."
+    },
+    "test:e2e": {
+      "not_applicable": "No runnable application or e2e target exists in the scaffold workspace yet; this check is enabled when the first app package lands."
+    },
+    "test:operations": {
+      "not_applicable": "No operations surface (database, monitoring, jobs) exists in the scaffold workspace yet; this check is enabled with the first operational component."
+    }
   }
 }
