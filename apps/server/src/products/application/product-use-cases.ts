@@ -68,6 +68,15 @@ export abstract class ImageStore {
  */
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 
+/** The contract's fixed oversize boundary (§2-2): a 400 with `fields.image`. */
+export function oversizeImageError(): DomainError {
+  return new DomainError(
+    'VALIDATION_FAILED',
+    '이미지 용량이 너무 커요. 10MB 이하로 올려주세요.',
+    { image: '이미지 용량이 너무 커요. 10MB 이하로 올려주세요.' },
+  );
+}
+
 export class UploadImage {
   constructor(private readonly images: ImageStore) {}
 
@@ -75,11 +84,7 @@ export class UploadImage {
     if (file.size > MAX_UPLOAD_BYTES) {
       // Belt-and-braces alongside the multer limit: the boundary must hold
       // regardless of which layer catches it first.
-      throw new DomainError(
-        'VALIDATION_FAILED',
-        '이미지 용량이 너무 커요. 10MB 이하로 올려주세요.',
-        { image: '이미지 용량이 너무 커요. 10MB 이하로 올려주세요.' },
-      );
+      throw oversizeImageError();
     }
     const metadata = parseImageMetadata(file.buffer);
     if (metadata === null) {
