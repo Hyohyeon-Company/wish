@@ -192,3 +192,298 @@ a:hover {
   font-size: var(--fs-sm);
   margin: 0;
 }
+
+/* --- sell-v1 (판매 등록, card C2) ----------------------------------------
+ * Layout follows design/t_8db2c17c/wish-sell-v1.html; every color, font,
+ * spacing and radius value comes from tokens.css (design-system-v1).
+ * ---------------------------------------------------------------------- */
+
+.sell {
+  min-height: 100vh;
+}
+
+.sell-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: rgba(15, 16, 20, 0.92);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+}
+
+.sell-header-in {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 var(--space-6);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+}
+
+.sell-back {
+  color: var(--text-1);
+  display: inline-flex;
+  padding: var(--space-2);
+}
+
+.sell-title {
+  color: var(--text-1);
+  font-size: var(--fs-xl);
+  font-weight: 700;
+}
+
+.sell-header-spacer {
+  width: 36px;
+}
+
+.sell-form {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 var(--space-6) var(--space-8);
+}
+
+.sell-field {
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.sell-field:last-of-type {
+  border-bottom: 0;
+}
+
+.sell-label {
+  display: block;
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--text-2);
+  margin-bottom: var(--space-2);
+}
+
+.sell-hint {
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+  font-weight: 400;
+  margin-left: 6px;
+}
+
+.sell-input {
+  width: 100%;
+  height: 48px;
+  padding: 0 var(--space-3);
+  background: var(--surface-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-button);
+  color: var(--text-1);
+  font-family: var(--font-stack);
+  font-size: var(--fs-md);
+  outline: none;
+}
+
+.sell-input:focus {
+  border-color: var(--brand);
+}
+
+.sell-input::placeholder {
+  color: var(--text-3);
+}
+
+.sell-input[aria-invalid='true'] {
+  border-color: var(--danger);
+}
+
+.sell-textarea {
+  height: auto;
+  min-height: 140px;
+  padding: var(--space-3);
+  resize: vertical;
+  line-height: 1.6;
+}
+
+.sell-counter {
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+  margin: var(--space-2) 0 0;
+}
+
+.sell-field-error {
+  color: var(--danger);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  margin: var(--space-2) 0 0;
+}
+
+.sell-form-error {
+  color: var(--danger);
+  font-size: var(--fs-md);
+  font-weight: 500;
+  margin: var(--space-4) 0 0;
+}
+
+/* photos */
+
+.sell-photos {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.sell-photo-add {
+  width: 88px;
+  height: 88px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: var(--text-3);
+  font-family: var(--font-stack);
+  font-size: var(--fs-xs);
+}
+
+.sell-photo-add:hover:not(:disabled) {
+  border-color: var(--brand);
+  color: var(--brand-strong);
+}
+
+.sell-photo-add:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.sell-photo-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.sell-photo-item {
+  position: relative;
+  width: 88px;
+  height: 88px;
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  background: var(--surface-2);
+}
+
+.sell-photo-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.sell-photo-main {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  background: var(--brand);
+  color: var(--on-brand);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+
+.sell-photo-remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(15, 16, 20, 0.7);
+  color: var(--text-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* chips */
+
+.sell-chips {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.sell-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-family: var(--font-stack);
+  font-size: var(--fs-md);
+  font-weight: 500;
+}
+
+.sell-chip:hover {
+  color: var(--text-1);
+}
+
+.sell-chip[aria-pressed='true'] {
+  background: var(--brand);
+  color: var(--on-brand);
+}
+
+.sell-retry {
+  color: var(--brand-strong);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  padding: var(--space-2) 0;
+}
+
+/* price */
+
+.sell-price-wrap {
+  position: relative;
+}
+
+.sell-price-input {
+  padding-right: 56px;
+  text-align: right;
+}
+
+.sell-won {
+  position: absolute;
+  right: 14px;
+  top: 24px;
+  transform: translateY(-50%);
+  color: var(--text-3);
+  font-size: var(--fs-md);
+}
+
+/* submit */
+
+.sell-submit-bar {
+  position: sticky;
+  bottom: 0;
+  background: rgba(15, 16, 20, 0.92);
+  backdrop-filter: blur(8px);
+  border-top: 1px solid var(--border);
+  padding: var(--space-3) 0;
+  margin: var(--space-6) calc(-1 * var(--space-6)) 0;
+}
+
+@media (max-width: 767px) {
+  .sell-header-in {
+    height: 56px;
+  }
+
+  .sell-form {
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
+  }
+
+  .sell-submit-bar {
+    margin: var(--space-6) calc(-1 * var(--space-4)) 0;
+  }
+}

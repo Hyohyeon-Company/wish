@@ -12,6 +12,7 @@ import { authStore, type AuthState } from './lib/auth';
 import { navigate, useLocation } from './lib/router';
 import { LandingPage } from './routes/landing';
 import { LoginPage } from './routes/login';
+import { SellRoute } from './routes/sell';
 import { SignupPage } from './routes/signup';
 
 export function App(): ReactElement {
@@ -20,6 +21,7 @@ export function App(): ReactElement {
 
   if (location.path === '/login') return <LoginPage />;
   if (location.path === '/signup') return <SignupPage />;
+  if (location.path === '/sell') return <SellRoute location={location.path} auth={auth} />;
   return <LandingRoute location={location.path} auth={auth} />;
 }
 
