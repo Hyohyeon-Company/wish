@@ -94,7 +94,7 @@ describe('my 찜 섹션 (card C6, AC6.2)', () => {
 
   it('shows the 찜 empty composer for 0 favorites (AC6.2 빈 상태)', async () => {
     const fetchImpl = vi.fn(async (input: string | URL | Request) => {
-      if (String(input).startsWith('/api/favorites')) {
+      if (String(input).startsWith('/api/favorites') || String(input).startsWith('/api/me/products')) {
         return jsonResponse(200, { items: [], total: 0, page: 1, limit: 24 });
       }
       return jsonResponse(500, { code: 'INTERNAL', message: 'unexpected' });
@@ -110,6 +110,11 @@ describe('my 찜 섹션 (card C6, AC6.2)', () => {
   it('a list failure shows the 오류 토스트 and 재시도 re-requests (§3 my 찜 row)', async () => {
     let fail = true;
     const fetchImpl = vi.fn(async (input: string | URL | Request) => {
+      // Only the 찜 list fails in this scenario; the 내 등록 상품 section
+      // (C7) succeeds, so the screen shows exactly one 오류 토스트.
+      if (String(input).startsWith('/api/me/products')) {
+        return jsonResponse(200, { items: [], total: 0, page: 1, limit: 24 });
+      }
       if (String(input).startsWith('/api/favorites')) {
         if (fail) return jsonResponse(500, { code: 'INTERNAL', message: '서버에 문제가 발생했어요.' });
         return jsonResponse(200, { items: [], total: 0, page: 1, limit: 24 });

@@ -11,10 +11,12 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   Post,
   Query,
   Req,
@@ -29,7 +31,9 @@ import type {
 // Value import required: DI token (see current-member.guard.ts note).
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import {
+  ChangeProductStatus,
   CreateProduct,
+  DeleteProduct,
   ListProducts,
   ReadProductDetail,
 } from '../products/application/product-use-cases';
@@ -46,6 +50,8 @@ export class ProductsController {
     private readonly listProducts: ListProducts,
     private readonly createProduct: CreateProduct,
     private readonly readProductDetail: ReadProductDetail,
+    private readonly changeProductStatus: ChangeProductStatus,
+    private readonly deleteProduct: DeleteProduct,
   ) {}
 
   @Get()
@@ -77,5 +83,29 @@ export class ProductsController {
   ): Promise<{ product: ProductView }> {
     const raw = asRecord(body);
     return this.createProduct.execute(raw, request.currentMember!);
+  }
+
+  /**
+   * §2-3 PATCH /api/products/{id}/status {status} (card C7, B10) — the
+   * authenticated seller's own status change. Route order matters: this
+   * `/status` sub-route is declared before any conflicting `:id` PATCH
+   * route could shadow it (there is none, but the contract path is fixed).
+   */
+  @Patch(':id/status')
+  @UseGuards(CurrentMemberGuard)
+  async changeStatus(
+    @Param('id') id: string,
+    @Req() request: Request,
+    @Body() body: unknown,
+  ): Promise<{ product: ProductView }> {
+    return this.changeProductStatus.execute(id, asRecord(body), request.currentMember!);
+  }
+
+  /** §2-3 DELETE /api/products/{id} (card C7, B12) — 204, 찜 정리 포함. */
+  @Delete(':id')
+  @UseGuards(CurrentMemberGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async remove(@Param('id') id: string, @Req() request: Request): Promise<void> {
+    await this.deleteProduct.execute(id, request.currentMember!);
   }
 }

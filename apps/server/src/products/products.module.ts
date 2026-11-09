@@ -1,9 +1,14 @@
 import { Module } from '@nestjs/common';
 import {
+  ChangeProductStatus,
   CreateProduct,
+  DeleteProduct,
   FavoriteLookup,
   ListCategories,
+  ListMyProducts,
   ListProducts,
+  ProductDeletionTransaction,
+  ProductFavoriteCleanup,
   ReadProductDetail,
   UploadImage,
   ImageStore,
@@ -18,13 +23,16 @@ import {
 import { FavoriteRepository } from '../favorites/domain/favorite';
 import { CategoriesController } from '../api/categories.controller';
 import { ProductsController } from '../api/products.controller';
+import { MyProductsController } from '../api/my-products.controller';
 import { FavoritesController } from '../api/favorites.controller';
 import { UploadedFilesController } from '../api/uploaded-files.controller';
 import { UploadsController } from '../api/uploads.controller';
 import { CurrentMemberGuard, OptionalCurrentMemberGuard } from '../api/current-member.guard';
 import { InMemoryProductRepository } from './infrastructure/in-memory-product.repository';
+import { InMemoryDeletionTransaction } from './infrastructure/in-memory-deletion-transaction';
 import { InMemoryFavoriteRepository } from '../favorites/infrastructure/in-memory-favorite.repository';
 import { FavoriteRepositoryLookup } from '../favorites/infrastructure/favorite-repository.lookup';
+import { FavoriteRepositoryCleanup } from '../favorites/infrastructure/favorite-repository.cleanup';
 import { LocalImageStore } from './infrastructure/local-image-store';
 import { AuthModule } from '../auth.module';
 
@@ -40,6 +48,7 @@ import { AuthModule } from '../auth.module';
     CategoriesController,
     UploadsController,
     ProductsController,
+    MyProductsController,
     FavoritesController,
     UploadedFilesController,
   ],
@@ -104,6 +113,33 @@ import { AuthModule } from '../auth.module';
         favorites: FavoriteLookup,
       ) => new ReadProductDetail(products, members, favorites),
       inject: [ProductRepository, MemberRepository, FavoriteLookup],
+    },
+    // C7: status change, deletion (with its AC6.2 favorite cleanup inside
+    // the deletion transaction boundary) and the my listing read side.
+    {
+      provide: ChangeProductStatus,
+      useFactory: (products: ProductRepository) => new ChangeProductStatus(products),
+      inject: [ProductRepository],
+    },
+    { provide: ProductDeletionTransaction, useClass: InMemoryDeletionTransaction },
+    {
+      provide: ProductFavoriteCleanup,
+      useFactory: (favorites: FavoriteRepository) => new FavoriteRepositoryCleanup(favorites),
+      inject: [FavoriteRepository],
+    },
+    {
+      provide: DeleteProduct,
+      useFactory: (
+        products: ProductRepository,
+        favorites: ProductFavoriteCleanup,
+        transactions: ProductDeletionTransaction,
+      ) => new DeleteProduct(products, favorites, transactions),
+      inject: [ProductRepository, ProductFavoriteCleanup, ProductDeletionTransaction],
+    },
+    {
+      provide: ListMyProducts,
+      useFactory: (products: ProductRepository) => new ListMyProducts(products),
+      inject: [ProductRepository],
     },
     CurrentMemberGuard,
     OptionalCurrentMemberGuard,

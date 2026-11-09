@@ -12,13 +12,14 @@
  * secondary key, e.g. an auto-increment id; the choice belongs to the
  * adapter, the legality of values belongs to the query value object).
  */
-import type {
+import {
   Product,
-  ProductPage,
-  ProductRepository,
-  ProductSnapshot,
+  type ProductPage,
+  type ProductRepository,
+  type ProductSnapshot,
 } from '../domain/product';
 import type { ProductListingQuery } from '../domain/product-listing';
+import type { MyProductsQuery } from '../domain/my-products-query';
 
 export class InMemoryProductRepository implements ProductRepository {
   private readonly byId = new Map<string, Product>();
@@ -33,8 +34,49 @@ export class InMemoryProductRepository implements ProductRepository {
     this.byId.set(product.id, product);
   }
 
+  /**
+   * C7's conditional write (§2-5-5 낙관 동시성): the write lands only when
+   * the stored row still carries `expectedVersion`; a lost race answers
+   * false and the caller renders the contract's 409. A successful write
+   * bumps the version by one — the token the NEXT conditional write checks.
+   */
+  async trySave(next: Product, expectedVersion: number): Promise<boolean> {
+    const current = this.byId.get(next.id);
+    if (current !== undefined && current.snapshotVersion() !== expectedVersion) {
+      return false;
+    }
+    const snapshot = next.toSnapshot();
+    const bumped = Product.fromSnapshot({ ...snapshot, version: expectedVersion + 1 });
+    return this.save(bumped).then(() => true);
+  }
+
   async findById(id: string): Promise<Product | null> {
     return this.byId.get(id) ?? null;
+  }
+
+  /**
+   * §2-4 GET /api/me/products execution (C7): the seller's own, non-deleted
+   * listings, optionally status-filtered, newest first with the same stable
+   * tie-break as the public listing.
+   */
+  async listBySeller(sellerId: string, query: MyProductsQuery): Promise<ProductPage> {
+    const matching: Array<{ product: Product; snapshot: ProductSnapshot; order: number }> = [];
+    for (const product of this.byId.values()) {
+      if (product.isDeleted()) continue;
+      const snapshot = product.toSnapshot();
+      if (snapshot.sellerId !== sellerId) continue;
+      if (query.status !== null && snapshot.status !== query.status) continue;
+      matching.push({
+        product,
+        snapshot,
+        order: this.insertionOrder.get(product.id) ?? -1,
+      });
+    }
+    matching.sort((a, b) => newestFirst(a, b));
+    const items = matching
+      .slice(query.offset, query.offset + query.limit)
+      .map((entry) => entry.product);
+    return { items, total: matching.length };
   }
 
   async list(query: ProductListingQuery): Promise<ProductPage> {
