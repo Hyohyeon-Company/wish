@@ -23,6 +23,10 @@
  *   no client-side filtering on top.
  * - unfavorite from the list: the heart toggle deletes the favorite and the
  *   list is re-requested, so the observed list stays the server's truth.
+ * - a 찜 toggle failure (network/5xx) is observed through its own 오류 토스트
+ *   even while the list itself is ready (C6 review observation — the toast
+ *   was phase-gated before, so the failure rendered silently); the heart
+ *   keeps its previous state and 확인 dismisses the toast.
  */
 import { useCallback, useEffect, useState, type ReactElement } from 'react';
 import { ApiError, NETWORK_ERROR_MESSAGE, request } from '../lib/api';
@@ -49,6 +53,10 @@ export function MyPage({ member }: { member: MemberView }): ReactElement {
   const [productsPhase, setProductsPhase] = useState<'loading' | 'ready' | 'error'>('loading');
   const [products, setProducts] = useState<MyProductsPage | null>(null);
   const [productsError, setProductsError] = useState<string | null>(null);
+  // A 찜 toggle failure is independent of the list phases (C6 review
+  // observation): the heart keeps its state and the screen must still
+  // observe the failure through its own toast (§3 standard branch).
+  const [favoriteError, setFavoriteError] = useState<string | null>(null);
 
   const load = useCallback(async (): Promise<void> => {
     setPhase('loading');
@@ -196,7 +204,7 @@ export function MyPage({ member }: { member: MemberView }): ReactElement {
                 key={product.id}
                 product={product}
                 initiallyFavorited
-                onFavoriteError={setErrorMessage}
+                onFavoriteError={setFavoriteError}
                 onFavoriteChanged={(favorited) => {
                   // 찜 해제 → the list is the server's truth: re-request it
                   // so the unfavorited row disappears (AC6.2 관찰).
@@ -213,6 +221,15 @@ export function MyPage({ member }: { member: MemberView }): ReactElement {
           <span>{errorMessage}</span>
           <button className="toast-retry" type="button" onClick={() => { void load(); }}>
             재시도
+          </button>
+        </div>
+      )}
+
+      {favoriteError !== null && (
+        <div className="toast" role="alert">
+          <span>{favoriteError}</span>
+          <button className="toast-retry" type="button" onClick={() => setFavoriteError(null)}>
+            확인
           </button>
         </div>
       )}

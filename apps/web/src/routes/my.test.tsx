@@ -179,6 +179,41 @@ describe('my 찜 섹션 (card C6, AC6.2)', () => {
     // The list was really re-requested after the unfavorite.
     expect(calls.filter((call) => call.url === '/api/favorites?page=1&limit=24')).toHaveLength(2);
   });
+
+  it('a 찜 toggle failure while the list is ready shows its own 오류 토스트 and the heart keeps its state (C6 관찰 소화, C9)', async () => {
+    const fetchImpl = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (url === '/api/favorites?page=1&limit=24') {
+        return jsonResponse(200, { items: [card('p-1', '원목 의자')], total: 1, page: 1, limit: 24 });
+      }
+      if (url === '/api/favorites/p-1' && init?.method === 'DELETE') {
+        return jsonResponse(500, { code: 'INTERNAL', message: '서버에 문제가 발생했어요.' });
+      }
+      if (url.startsWith('/api/me/products')) return jsonResponse(200, emptyPage());
+      return jsonResponse(500, { code: 'INTERNAL', message: 'unexpected' });
+    });
+    vi.stubGlobal('fetch', fetchImpl);
+    const user = userEvent.setup();
+    window.history.replaceState(null, '', '/my');
+    render(<App />);
+
+    expect(await screen.findByText('원목 의자')).toBeTruthy();
+    const heart = screen.getAllByRole('button', { name: '찜하기' })[0]!;
+    expect(heart.getAttribute('aria-pressed')).toBe('true');
+
+    await user.click(heart);
+
+    // The toggle failure is observed even though the list itself is fine —
+    // the pre-C9 toast was phase-gated, so this failure rendered silently.
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('서버에 문제가 발생했어요.');
+    // An unobserved failure must not fake a state change: the heart stays filled.
+    expect(heart.getAttribute('aria-pressed')).toBe('true');
+    // 확인 dismisses the toast; the row stays in the server's truth.
+    await user.click(screen.getByRole('button', { name: '확인' }));
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.getByText('원목 의자')).toBeTruthy();
+  });
 });
 
 /**
