@@ -13,10 +13,10 @@
  *   /login   — login-v1
  *   /signup  — signup-v1
  *   /sell    — sell-v1 (guest → login redirect, AC4.1)
- *   /my      — my-v1 (최소): the 찜 section (card C6, AC6.2) plus the
- *             session observation surface (logout, AC5.1); guests are
- *             login-redirected with returnTo (마이 is an authenticated
- *             destination). C8 completes my-v1 with 내 등록 상품.
+ *   /my      — my-v1: the 내 등록 상품 (C7 승계, §2-4 me/products — 상태
+ *             배지·변경 입구·삭제) and 찜 (C6 승계) sections (card C8,
+ *             AC8.1); guests are login-redirected with returnTo (마이 is an
+ *             authenticated destination).
  *   anything else — public destinations awaiting their slice. Until the
  *             owning card renders the screen, arriving at such a URL
  *             returns to the home feed (the design's 목록 복귀 pattern).

@@ -168,9 +168,8 @@ describe('LoginPage', () => {
 
 describe('placeholder landing route (C3 update)', () => {
   it('a guest at an unassigned path is routed to the login screen with a returnTo reference', async () => {
-    // Since C3 the home feed at / is public (AC1.1); the placeholder landing
-    // (logout observation surface until C8's my-v1) keeps the guest redirect
-    // on the paths that are still placeholder-only, /my included.
+    // Since C3 the home feed at / is public (AC1.1); my-v1 (card C8, AC8.1)
+    // keeps the guest redirect — 마이 is an authenticated destination (§3).
     window.history.replaceState(null, '', '/my');
     render(<App />);
     await waitFor(() => {
