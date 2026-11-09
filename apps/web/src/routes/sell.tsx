@@ -42,7 +42,7 @@ interface CategoryView {
 }
 
 /** The four 상품상태 codes extracted from the sell-v1 HTML (server-confirmed set). */
-const CONDITIONS: ReadonlyArray<{ readonly code: string; readonly label: string }> = [
+export const CONDITIONS: ReadonlyArray<{ readonly code: string; readonly label: string }> = [
   { code: 'new', label: '새 제품' },
   { code: 'like_new', label: '거의 새 것' },
   { code: 'used', label: '사용감 있음' },

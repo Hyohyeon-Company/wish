@@ -45,6 +45,26 @@ function routeByUrl(url: string): Response {
   if (url.endsWith('/api/uploads')) {
     return jsonResponse(201, { url: `/uploads/photo-${Math.random()}.png`, width: 1, height: 1, size: 100 });
   }
+  // Since C5 the B7 destination /products/{id} is the real detail-v1 screen;
+  // serve its §2-3 body so the post-registration detail is observed (AC4.3).
+  if (url === '/api/products/product-9') {
+    return jsonResponse(200, {
+      product: {
+        id: 'product-9',
+        title: '아이패드 미니 6세대',
+        description: '거의 사용하지 않은 상품입니다.',
+        price: 350000,
+        category_code: 'digital',
+        condition: 'like_new',
+        region: '사당동',
+        status: 'ACTIVE',
+        created_at: '2026-11-09T00:00:00.000Z',
+        seller: { id: 'member-1', nickname: '판매자', region: '사당동' },
+        images: [{ url: '/uploads/p1.png', sort_order: 1 }],
+      },
+      favorited: false,
+    });
+  }
   return jsonResponse(500, { code: 'INTERNAL', message: 'unexpected' });
 }
 
@@ -201,12 +221,12 @@ describe('sell-v1 form (B4~B7)', () => {
     });
     await user.click(screen.getByRole('button', { name: '등록하기' }));
     await waitFor(() => {
-      // B7/B8: the 201 contract destination is /products/{id}; since C3 the
-      // unbuilt public detail destination returns the visitor to the feed
-      // (§3-공개 policy) until C5 renders detail-v1 — the feed's first card
-      // is then the just-registered product (AC4.3).
-      expect(window.location.pathname).toBe('/');
+      // B7: the 201 contract destination is /products/{id} — since C5 it is
+      // the real detail-v1 screen (AC4.3: 등록 성공 후 해당 상품 상세로 이동),
+      // no longer the pre-C5 feed round-trip.
+      expect(window.location.pathname).toBe('/products/product-9');
     });
+    expect(await screen.findByRole('heading', { name: '아이패드 미니 6세대' })).toBeTruthy();
   });
 
   it('renders 400 field errors and preserves the inputs (B7)', async () => {

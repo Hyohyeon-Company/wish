@@ -71,7 +71,14 @@ describe('LoginPage', () => {
     const user = userEvent.setup();
     window.history.replaceState(null, '', '/login?returnTo=%2Fproducts%2F7');
     const fetchImpl = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
-      expect(String(input)).toBe('/api/auth/login');
+      const url = String(input);
+      // The returnTo destination is a detail URL; since C5 detail-v1 owns it,
+      // so the post-login detail request must be served (here: the product
+      // does not exist in this stub → the AC3.2 404 branch at the URL).
+      if (url.startsWith('/api/products/')) {
+        return jsonResponse(404, { code: 'NOT_FOUND', message: '상품을 찾을 수 없어요.' });
+      }
+      expect(url).toBe('/api/auth/login');
       expect(JSON.parse(String(init?.body))).toEqual({
         email: 'seller@example.com',
         password: 'Str0ng-Pass!',
@@ -93,11 +100,12 @@ describe('LoginPage', () => {
     await user.type(screen.getByLabelText('비밀번호'), 'Str0ng-Pass!');
     await user.click(screen.getByRole('button', { name: '로그인' }));
     await waitFor(() => {
-      // returnTo=/products/7 is honored as the destination URL; since C3 the
-      // unbuilt public detail destination returns the visitor to the feed
-      // (§3-공개 policy) until C5 renders detail-v1.
-      expect(window.location.pathname).toBe('/');
+      // returnTo=/products/7 lands on the real detail-v1 screen since C5; the
+      // stub's product does not exist, so the §3 404 branch (AC3.2) renders
+      // at the contract destination — no feed round-trip anymore.
+      expect(window.location.pathname).toBe('/products/7');
     });
+    expect(await screen.findByText('상품을 찾을 수 없어요')).toBeTruthy();
     expect(authStore.getState().status).toBe('authenticated');
     expect(authStore.getState().member?.nickname).toBe('판매자');
   });

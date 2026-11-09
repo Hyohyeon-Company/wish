@@ -1111,3 +1111,241 @@ a:hover {
     left: 0;
   }
 }
+
+/* ===== detail-v1: gallery, price, seller, spec table (card C5, design =====
+ * t_8db2c17c/wish-detail-v1.html on design-system-v1 tokens). The design's
+ * CTA row (채팅하기 AC3.3 비노출, 가격 제안·찜 토글 → C6/계약 부재) and the
+ * sample-data spec rows are intentionally not rendered — see detail.tsx. */
+
+.hd-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-2);
+  font-size: var(--fs-md);
+}
+
+.hd-back:hover {
+  color: var(--text-1);
+}
+
+.detail {
+  display: grid;
+  grid-template-columns: minmax(0, 604px) minmax(0, 1fr);
+  gap: var(--space-8);
+  padding: var(--space-6) 0 var(--space-8);
+}
+
+.gal-main {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  border-radius: var(--radius-sheet);
+  overflow: hidden;
+  background: linear-gradient(135deg, #26232f, #191b24);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gal-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.gal-i {
+  color: var(--text-3);
+  font-size: var(--fs-md);
+}
+
+.gal-badge {
+  position: absolute;
+  top: var(--space-3);
+  left: var(--space-3);
+}
+
+.gal-dots {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin-top: var(--space-3);
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  border: 0;
+  padding: 0;
+}
+
+.dot[aria-current='true'] {
+  background: var(--brand);
+}
+
+.d-badges {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.badge-cond {
+  background: var(--surface-2);
+  color: var(--text-2);
+  border: 1px solid var(--border);
+}
+
+.d-title {
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  margin: 0 0 var(--space-2);
+}
+
+.d-meta {
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+  margin: 0 0 var(--space-2);
+}
+
+.d-price-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin: var(--space-4) 0;
+  padding: var(--space-4) 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+/* A6: 가격 24px/700 (--fs-price는 design-system-v1 §3의 가격 전용 토큰). */
+.d-price {
+  font-size: var(--fs-price);
+  font-weight: 700;
+}
+
+.d-desc {
+  font-size: var(--fs-md);
+  color: var(--text-2);
+  white-space: pre-line;
+}
+
+.d-seller {
+  margin-top: var(--space-5);
+  background: var(--surface);
+  border-radius: var(--radius-sheet);
+  padding: var(--space-4);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.d-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--brand-deep), #3b2a5e);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: #fff;
+  font-size: var(--fs-lg);
+  flex: none;
+}
+
+.d-seller-name {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+}
+
+.d-seller-loc {
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+}
+
+.d-spec {
+  margin-top: var(--space-5);
+}
+
+.d-spec h2 {
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  margin: 0 0 var(--space-3);
+}
+
+.d-spec table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-md);
+}
+
+.d-spec td {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.d-spec td:first-child {
+  width: 110px;
+  color: var(--text-3);
+}
+
+/* 로딩 스켈레톤 (§3 detail row: 갤러리·텍스트). */
+.d-skeleton {
+  display: grid;
+  grid-template-columns: minmax(0, 604px) minmax(0, 1fr);
+  gap: var(--space-8);
+  padding: var(--space-6) 0 var(--space-8);
+}
+
+.d-skel-gal {
+  aspect-ratio: 1 / 1;
+  border-radius: var(--radius-sheet);
+}
+
+.d-skel-badge {
+  width: 140px;
+  height: 24px;
+  border-radius: var(--radius-button);
+}
+
+.d-skel-title {
+  width: 70%;
+  height: 26px;
+  border-radius: var(--radius-button);
+}
+
+.d-skel-price {
+  width: 160px;
+  height: 30px;
+  border-radius: var(--radius-button);
+  margin: var(--space-4) 0;
+}
+
+.d-skel-line {
+  height: 16px;
+  margin-bottom: var(--space-2);
+}
+
+.d-skel-line.short {
+  width: 60%;
+}
+
+.d-skel-seller {
+  width: 100%;
+  height: 76px;
+  border-radius: var(--radius-sheet);
+  margin-top: var(--space-5);
+}
+
+@media (max-width: 900px) {
+  .detail,
+  .d-skeleton {
+    grid-template-columns: 1fr;
+    gap: var(--space-5);
+    padding-top: var(--space-4);
+  }
+}

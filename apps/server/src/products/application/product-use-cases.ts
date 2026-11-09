@@ -5,7 +5,7 @@
  * lives in the domain — the application layer only arranges the steps.
  */
 import { randomUUID } from 'node:crypto';
-import type { Member } from '../../members/domain/member';
+import type { Member, MemberRepository } from '../../members/domain/member';
 import { DomainError } from '../../shared/domain-error';
 import { listCategories } from '../../catalog/domain/category';
 import { Product, type ProductRepository, type ProductSnapshot } from '../domain/product';
@@ -200,6 +200,63 @@ export class ListProducts {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Product detail (§2-3 GET /api/products/{id})
+// ---------------------------------------------------------------------------
+
+/**
+ * Whether a member has favorited a product (port; adapter per environment).
+ * The favorited field is part of the §2-3 detail contract from day one, but
+ * the favorites aggregate itself is card C6's slice — until C6 lands its
+ * writes, no favorite can exist, so the adapter legitimately answers false
+ * for every viewer.
+ */
+export abstract class FavoriteLookup {
+  abstract isFavorite(productId: string, memberId: string): Promise<boolean>;
+}
+
+/** The §2-3 GET /api/products/{id} success body. */
+export interface ProductDetailView {
+  readonly product: ProductView;
+  /** 로그인 viewer → bool, 비로그인 → null (§2-3 favorited contract). */
+  readonly favorited: boolean | null;
+}
+
+export class ReadProductDetail {
+  constructor(
+    private readonly products: ProductRepository,
+    private readonly members: MemberRepository,
+    private readonly favorites: FavoriteLookup,
+  ) {}
+
+  /**
+   * Public read: `viewer` is the authenticated principal when a live token
+   * was presented and null otherwise (the optional guard decides, §3 marks
+   * detail-v1 a 공개 화면). A missing or soft-deleted product is the
+   * contract's 404 NOT_FOUND (존재하지 않음·삭제됨) — deletion is not an
+   * idempotent "gone", it is an error state to observe (AC3.2).
+   */
+  async execute(id: unknown, viewer: Member | null): Promise<ProductDetailView> {
+    const product =
+      typeof id === 'string' && id.length > 0 ? await this.products.findById(id) : null;
+    if (product === null || product.isDeleted()) {
+      throw new DomainError(
+        'NOT_FOUND',
+        '상품을 찾을 수 없어요. 삭제되었거나 만료된 상품일 수 있어요.',
+      );
+    }
+    const seller = await this.members.findById(product.sellerId);
+    if (seller === null) {
+      // A product whose seller no longer resolves is corrupted state — the
+      // same public 404 absorbs it instead of surfacing a 500 shape.
+      throw new DomainError('NOT_FOUND', '상품을 찾을 수 없어요.');
+    }
+    const favorited =
+      viewer === null ? null : await this.favorites.isFavorite(product.id, viewer.id);
+    return { product: toProductView(product, seller), favorited };
+  }
+}
+
 /** thumbnail은 sort_order 최소 이미지; 없으면 null (클라가 플레이스홀더 렌더). */
 export function toProductCardView(product: Product): ProductCardView {
   const snapshot: ProductSnapshot = product.toSnapshot();
@@ -230,6 +287,10 @@ export function toProductView(product: Product, seller: Member): ProductView {
     status: snapshot.status,
     created_at: snapshot.createdAt.toISOString(),
     seller: { id: seller.id, nickname: seller.nickname.value, region: seller.region.value },
-    images: snapshot.images.map((image) => ({ url: image.url, sort_order: image.sortOrder })),
+    // sort_order ascending regardless of stored order — the contract's
+    // images array is the gallery's display order (first = 대표).
+    images: [...snapshot.images]
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((image) => ({ url: image.url, sort_order: image.sortOrder })),
   };
 }

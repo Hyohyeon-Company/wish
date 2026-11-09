@@ -66,7 +66,7 @@ export interface ListPage {
 const FEED_QUERY = '/api/products?page=1&limit=24&sort=latest';
 
 /** The §2-0 status enum ↔ badge vocabulary (design §5, AC1.4). */
-const STATUS_BADGES: Record<string, { readonly label: string; readonly className: string }> = {
+export const STATUS_BADGES: Record<string, { readonly label: string; readonly className: string }> = {
   ACTIVE: { label: '판매중', className: 'badge-sale' },
   RESERVED: { label: '예약중', className: 'badge-reserved' },
   SOLD: { label: '거래완료', className: 'badge-done' },
