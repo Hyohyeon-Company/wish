@@ -1,15 +1,24 @@
 /**
- * Route table for the auth screens slice:
- *   /login  — login-v1
- *   /signup — signup-v1
- *   /       — minimal authenticated landing (session observation surface;
- *             the real home-v1 feed is card C3, not this slice).
- * A guest landing on any other path is routed to the login screen with a
- * `returnTo` reference (401 유도와 동일한 복귀 규칙, AC4.1).
+ * Route table after the home-feed slice (C3):
+ *   /        — home-v1, the PUBLIC feed (AC1.1: 로그인 없이 홈 접속; the
+ *             pre-C3 guest redirect at / was the placeholder posture and is
+ *             superseded here).
+ *   /login   — login-v1
+ *   /signup  — signup-v1
+ *   /sell    — sell-v1 (guest → login redirect, AC4.1)
+ *   /my      — placeholder landing: the session observation surface (logout,
+ *             AC5.1) until C8 renders my-v1; guests are login-redirected
+ *             with returnTo (마이 is an authenticated destination).
+ *   anything else — public destinations awaiting their slice (/search → C4,
+ *             /products/{id} → C5). §3 marks search/detail as 공개 화면, so
+ *             a guest must NOT be login-redirected there; until the owning
+ *             card renders the screen, arriving at such a URL returns to the
+ *             home feed (the design's 목록 복귀 pattern).
  */
 import { useEffect, useState, type ReactElement } from 'react';
 import { authStore, type AuthState } from './lib/auth';
 import { navigate, useLocation } from './lib/router';
+import { HomePage } from './routes/home';
 import { LandingPage } from './routes/landing';
 import { LoginPage } from './routes/login';
 import { SellRoute } from './routes/sell';
@@ -19,10 +28,12 @@ export function App(): ReactElement {
   const location = useLocation();
   const auth = useAuthState();
 
+  if (location.path === '/') return <HomePage auth={auth} />;
   if (location.path === '/login') return <LoginPage />;
   if (location.path === '/signup') return <SignupPage />;
   if (location.path === '/sell') return <SellRoute location={location.path} auth={auth} />;
-  return <LandingRoute location={location.path} auth={auth} />;
+  if (location.path === '/my') return <LandingRoute location={location.path} auth={auth} />;
+  return <UnbuiltPublicRoute location={location.path} />;
 }
 
 function LandingRoute({ location, auth }: { location: string; auth: AuthState }): ReactElement {
@@ -37,6 +48,13 @@ function LandingRoute({ location, auth }: { location: string; auth: AuthState })
   }
   // 'unknown' (boot in flight) and the guest redirect frame render nothing —
   // an empty frame beats flashing the wrong screen.
+  return <div className="landing" aria-busy="true" />;
+}
+
+function UnbuiltPublicRoute({ location }: { location: string }): ReactElement {
+  useEffect(() => {
+    navigate('/', { replace: true });
+  }, [location]);
   return <div className="landing" aria-busy="true" />;
 }
 

@@ -487,3 +487,446 @@ a:hover {
     margin: var(--space-6) calc(-1 * var(--space-4)) 0;
   }
 }
+
+/* ==========================================================================
+ * home-v1 (card C3) — rendered from design/t_8db2c17c/wish-home-v1.html with
+ * design-system-v1 tokens only: header + search pill, category chip rail,
+ * the feed grid (desktop auto-fill 240px → 4 columns at 1280px, mobile 2
+ * columns per design §4), product card skeleton, badges, empty state,
+ * error toast and the mobile tab bar (채팅 tab intentionally absent).
+ * ========================================================================== */
+
+/* header */
+
+.wrap {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 var(--space-6);
+}
+
+.hd {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: rgba(15, 16, 20, 0.92);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+}
+
+.hd-in {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  height: 64px;
+}
+
+.logo {
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--brand-strong);
+  flex: none;
+}
+
+.logo em {
+  font-style: normal;
+  color: var(--text-1);
+}
+
+.search {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 42px;
+  padding: 0 var(--space-4);
+  background: var(--surface-2);
+  border-radius: 999px;
+  border: 1px solid transparent;
+}
+
+.search:focus-within {
+  border-color: var(--brand);
+}
+
+.search svg {
+  flex: none;
+  color: var(--text-3);
+}
+
+.search input {
+  flex: 1;
+  background: none;
+  border: 0;
+  color: var(--text-1);
+  font: inherit;
+  outline: none;
+}
+
+.search input::placeholder {
+  color: var(--text-3);
+}
+
+.hd-act {
+  display: flex;
+  gap: var(--space-2);
+  flex: none;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  height: 40px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-button);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.btn-primary {
+  background: var(--brand);
+  color: var(--on-brand);
+}
+
+.btn-primary:hover {
+  background: var(--brand-strong);
+}
+
+.btn-ghost {
+  color: var(--text-2);
+}
+
+.btn-ghost:hover {
+  color: var(--text-1);
+}
+
+/* category chips */
+
+.cats {
+  display: flex;
+  gap: var(--space-2);
+  overflow-x: auto;
+  padding: var(--space-4) 0;
+  scrollbar-width: none;
+}
+
+.cats::-webkit-scrollbar {
+  display: none;
+}
+
+.chip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.chip:hover {
+  color: var(--text-1);
+}
+
+.chip[aria-current='true'] {
+  background: var(--brand);
+  color: var(--on-brand);
+}
+
+/* feed grid + product card */
+
+.sec-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
+}
+
+.sec-head h2 {
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--space-4);
+  padding-bottom: var(--space-8);
+}
+
+.card {
+  display: block;
+  background: var(--surface);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+
+.card:hover {
+  background: var(--surface-2);
+}
+
+.thumb {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  background: var(--surface-2);
+}
+
+.thumb-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.thumb-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #232030, #1a1c26);
+}
+
+.thumb-i {
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+  letter-spacing: 0.02em;
+}
+
+.badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 var(--space-2);
+  border-radius: 999px;
+  font-size: var(--fs-xs);
+  font-weight: 500;
+}
+
+/* AC1.4 badge vocabulary (design §5) */
+.badge-reserved {
+  background: var(--warning);
+  color: #3d2a05;
+}
+
+.badge-done {
+  background: #3a3d46;
+  color: var(--text-2);
+}
+
+.badge-sale {
+  background: var(--bg);
+  border: 1px solid var(--success);
+  color: var(--success);
+}
+
+.card.done {
+  opacity: 0.55;
+}
+
+.card-body {
+  padding: var(--space-3) var(--space-3) var(--space-4);
+}
+
+.price {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+}
+
+.title {
+  font-size: var(--fs-md);
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+
+.meta {
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+  margin-top: 6px;
+}
+
+/* loading skeleton (AC2.5: --surface-2 blocks + CSS shimmer) */
+
+@keyframes wish-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-block {
+  background: linear-gradient(90deg, var(--surface-2) 25%, #26272f 50%, var(--surface-2) 75%);
+  background-size: 200% 100%;
+  animation: wish-shimmer 1.4s ease infinite;
+  border-radius: var(--radius-button);
+}
+
+.skeleton-price {
+  height: 16px;
+  width: 55%;
+}
+
+.skeleton-title {
+  height: 15px;
+  width: 90%;
+  margin-top: var(--space-2);
+}
+
+.skeleton-meta {
+  height: 13px;
+  width: 60%;
+  margin-top: var(--space-2);
+}
+
+/* empty state composer (AC1.2) */
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-10) 0 var(--space-10);
+  color: var(--text-3);
+  text-align: center;
+}
+
+.empty-title {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  color: var(--text-1);
+  margin-top: var(--space-2);
+}
+
+.empty-hint {
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+}
+
+.empty-cta {
+  margin-top: var(--space-4);
+}
+
+/* §3 error branch: minimal text toast + retry (Leader 확정 ①) */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 88px;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  max-width: calc(100vw - 32px);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sheet);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--fs-sm);
+  color: var(--text-1);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.toast-retry {
+  flex: none;
+  color: var(--brand-strong);
+  font-weight: 600;
+  font-size: var(--fs-sm);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-button);
+}
+
+/* mobile bottom tab bar (4탭 — 채팅 비노출, §7) */
+
+.tabbar {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .wrap {
+    padding: 0 var(--space-4);
+  }
+
+  .hd-in {
+    height: 56px;
+    gap: var(--space-2);
+  }
+
+  .hd-act .btn-ghost {
+    display: none;
+  }
+
+  .btn {
+    height: 38px;
+    font-size: var(--fs-md);
+    padding: 0 var(--space-3);
+  }
+
+  .search {
+    height: 40px;
+  }
+
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-3);
+  }
+
+  .sec-head h2 {
+    font-size: var(--fs-xl);
+  }
+
+  body {
+    padding-bottom: 76px;
+  }
+
+  .tabbar {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 6px 0 max(6px, env(safe-area-inset-bottom));
+  }
+
+  .tabbar a {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 6px 0;
+    font-size: 11px;
+    color: var(--text-3);
+  }
+
+  .tabbar a[aria-current='true'] {
+    color: var(--brand-strong);
+  }
+
+  .tabbar .tab-sell svg {
+    background: var(--brand);
+    color: var(--on-brand);
+    border-radius: 50%;
+    padding: 6px;
+    box-sizing: content-box;
+  }
+}

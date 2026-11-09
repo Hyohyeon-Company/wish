@@ -11,9 +11,12 @@
  * - price is a positive integer in 원 (contract §2-3: 가격 양의 정수 아님 → 400),
  * - condition is the fixed four-value set from the screen's 상품상태 chips.
  */
-import { DomainError } from '../../shared/domain-error';
 import { findCategory } from '../../catalog/domain/category';
-import { FieldValidation, fieldFailure } from './product-field-validation';
+import {
+  FieldValidation,
+  fieldFailure,
+  requireValidFields,
+} from './product-field-validation';
 
 export class ProductTitle {
   private constructor(readonly value: string) {}
@@ -154,26 +157,11 @@ export interface ProductCreationFields {
 
 /**
  * Parses every sell-form field at once and aggregates the failures into the
- * single contract 400 body (mirrors member-value-objects.requireFields).
+ * single contract 400 body — the Product-shaped instance of the generic
+ * requireValidFields collector (mirrors member-value-objects.requireFields).
  */
 export function requireProductFields(
   read: (collect: <V>(attempt: () => V) => V | undefined) => ProductCreationFields,
 ): ProductCreationFields {
-  const fields: Record<string, string> = {};
-  const collect = <V>(attempt: () => V): V | undefined => {
-    try {
-      return attempt();
-    } catch (error) {
-      if (error instanceof FieldValidation) {
-        fields[error.field] = error.message;
-        return undefined;
-      }
-      throw error;
-    }
-  };
-  const value = read(collect);
-  if (Object.keys(fields).length > 0) {
-    throw new DomainError('VALIDATION_FAILED', '입력값을 확인해 주세요.', fields);
-  }
-  return value;
+  return requireValidFields(read);
 }

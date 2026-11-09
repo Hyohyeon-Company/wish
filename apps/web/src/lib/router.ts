@@ -1,8 +1,9 @@
 /**
- * Minimal history-based router for this slice (/login, /signup and the
- * authenticated landing at /). No routing dependency yet — react-router
- * becomes worth its weight when the feed/search/detail screens (C3+) need
- * nested layouts and params; this file is the seam they will replace.
+ * Minimal history-based router for this slice (/login, /signup, the public
+ * home feed at /, /sell and the /my placeholder). No routing dependency yet —
+ * react-router becomes worth its weight when the feed/search/detail screens
+ * (C3+) need nested layouts and params; this file is the seam they will
+ * replace.
  */
 import { useSyncExternalStore } from 'react';
 

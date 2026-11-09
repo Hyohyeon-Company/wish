@@ -1,10 +1,13 @@
 /**
- * Minimal authenticated landing — NOT home-v1 (that is card C3).
+ * Minimal authenticated landing — the /my placeholder (NOT home-v1, which is
+ * the public feed at / since card C3).
  *
- * It exists so the auth slice's session lifecycle is observable end to end
- * (AC5.1: signup → logout → re-login) without pulling feed UI into this
- * card. It shows who is logged in and offers logout (POST /api/auth/logout,
- * §2-1); a failing logout keeps the session and reports the error.
+ * It exists so the session lifecycle stays observable end to end (AC5.1:
+ * signup → logout → re-login) until card C8 renders the real my-v1; the
+ * route table sends /my here and login-redirects guests (마이 is an
+ * authenticated destination). It shows who is logged in and offers logout
+ * (POST /api/auth/logout, §2-1); a failing logout keeps the session and
+ * reports the error.
  */
 import { useState, type ReactElement } from 'react';
 import { ApiError } from '../lib/api';
