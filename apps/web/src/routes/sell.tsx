@@ -265,9 +265,7 @@ function SellPage({ member }: { member: MemberView }): ReactElement {
                   type="button"
                   aria-label={`사진 ${index + 1} 삭제`}
                   onClick={() => setPhotos((previous) => previous.filter((_, i) => i !== index))}
-                >
-                  ✕
-                </button>
+                />
               </div>
             ))}
             {photos.length < MAX_PHOTOS && (
