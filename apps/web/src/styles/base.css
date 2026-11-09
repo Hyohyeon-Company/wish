@@ -930,3 +930,184 @@ a:hover {
     box-sizing: content-box;
   }
 }
+
+/* ===== search-v1: filter chips, result bar, sort (card C4, design §5) =====
+ * 필터 칩: "가격∨·상태∨·지역∨" + 결과 수 + 정렬 (§5). 활성 시 --brand 보더.
+ * 칩 높이는 design 화면 기준(34px); popovers/inputs/buttons keep the §6 44px
+ * touch target. */
+
+.filters {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  padding: var(--space-2) 0 var(--space-4);
+}
+
+.f-chip-wrap {
+  position: relative;
+}
+
+.f-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 34px;
+  padding: 0 var(--space-3);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-family: var(--font-stack);
+  font-size: var(--fs-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+
+.f-chip:hover {
+  color: var(--text-1);
+}
+
+.f-chip.active,
+.f-chip[aria-expanded='true'] {
+  border-color: var(--brand);
+  color: var(--brand-strong);
+}
+
+.f-pop {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  left: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 220px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sheet);
+  padding: var(--space-4);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.f-label {
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+
+.f-input {
+  height: 44px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-button);
+  color: var(--text-1);
+  font-family: var(--font-stack);
+  font-size: var(--fs-md);
+  padding: 0 var(--space-3);
+}
+
+.f-input:focus {
+  border-color: var(--brand);
+  outline: none;
+}
+
+.f-error {
+  color: var(--danger);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  margin: 0;
+}
+
+.f-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.f-reset {
+  flex: 1;
+  height: 44px;
+  border-radius: var(--radius-button);
+  background: var(--surface-2);
+  color: var(--text-1);
+  font-family: var(--font-stack);
+  font-size: var(--fs-md);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.f-reset:hover {
+  color: var(--brand-strong);
+}
+
+.f-apply {
+  flex: 1;
+  width: auto;
+}
+
+.result-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: var(--space-4);
+}
+
+.count {
+  font-size: var(--fs-md);
+  color: var(--text-2);
+}
+
+.count strong {
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  color: var(--text-1);
+}
+
+.sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+  color: var(--text-2);
+  font-family: var(--font-stack);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+.sort:hover {
+  color: var(--text-1);
+}
+
+/* 빈 상태의 추천 검색어 칩 + 목록 복귀 (AC2.4, design §5/§8). */
+
+.empty-chips {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: var(--space-2);
+}
+
+.empty-back {
+  margin-top: var(--space-3);
+  display: inline-flex;
+  align-items: center;
+  height: 44px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-button);
+  background: var(--surface-2);
+  color: var(--text-1);
+  font-family: var(--font-stack);
+  font-size: var(--fs-md);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.empty-back:hover {
+  color: var(--brand-strong);
+}
+
+@media (max-width: 767px) {
+  .f-pop {
+    left: 0;
+  }
+}

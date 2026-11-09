@@ -36,7 +36,7 @@ import type { AuthState } from '../lib/auth';
 import { navigate } from '../lib/router';
 import { formatPrice, formatRelativeTime } from '../lib/time';
 
-/** The §2-4 ProductCard shape (server-projected). */
+/** The §2-4 ProductCard shape (server-projected). Shared with search-v1 (C4). */
 export interface ProductCard {
   readonly id: string;
   readonly title: string;
@@ -54,7 +54,8 @@ interface CategoryView {
   readonly display_order: number;
 }
 
-interface ListPage {
+/** The §2-0 page envelope. Shared with search-v1 (C4). */
+export interface ListPage {
   readonly items: readonly ProductCard[];
   readonly total: number;
   readonly page: number;
@@ -224,7 +225,8 @@ export function HomePage({ auth }: { auth: AuthState }): ReactElement {
   );
 }
 
-function ProductCardLink({ product }: { product: ProductCard }): ReactElement {
+/** Renders one §2-4 product card. Shared with search-v1 (C4). */
+export function ProductCardLink({ product }: { product: ProductCard }): ReactElement {
   const badge = STATUS_BADGES[product.status] ?? null;
   return (
     <a
@@ -299,14 +301,17 @@ export function EmptyFeed(): ReactElement {
 /**
  * The 모바일 하단 탭바 (design §5, brief §7): 홈·검색·판매·마이 4탭 — the
  * 채팅 tab is intentionally not rendered (v1 비노출, §4a/§7). 마이 routes to
- * the placeholder landing until card C8 replaces it.
+ * the placeholder landing until card C8 replaces it. `active` marks the
+ * current tab (search-v1 passes '/search'); 홈 remains the default.
  */
-export function FooterNav(): ReactElement {
+export function FooterNav({ active = '/' }: { active?: string }): ReactElement {
+  const current = (tab: string): 'true' | undefined =>
+    tab === active ? 'true' : undefined;
   return (
     <nav className="tabbar" aria-label="주요 메뉴">
       <a
         href="/"
-        aria-current="true"
+        aria-current={current('/')}
         onClick={(event) => {
           event.preventDefault();
           navigate('/');
@@ -317,6 +322,7 @@ export function FooterNav(): ReactElement {
       </a>
       <a
         href="/search"
+        aria-current={current('/search')}
         onClick={(event) => {
           event.preventDefault();
           navigate('/search');
@@ -325,11 +331,11 @@ export function FooterNav(): ReactElement {
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
         검색
       </a>
-      <a className="tab-sell" href="/sell" onClick={(event) => { event.preventDefault(); navigate('/sell'); }}>
+      <a className="tab-sell" href="/sell" aria-current={current('/sell')} onClick={(event) => { event.preventDefault(); navigate('/sell'); }}>
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
         판매
       </a>
-      <a href="/my" onClick={(event) => { event.preventDefault(); navigate('/my'); }}>
+      <a href="/my" aria-current={current('/my')} onClick={(event) => { event.preventDefault(); navigate('/my'); }}>
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21c1.5-4 5-5 8-5s6.5 1 8 5" /></svg>
         마이
       </a>
