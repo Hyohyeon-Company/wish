@@ -127,6 +127,7 @@ export function SearchPage({ query, auth }: { query: URLSearchParams; auth: Auth
   const [phase, setPhase] = useState<'loading' | 'ready' | 'error'>('loading');
   const [page, setPage] = useState<ListPage | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [favoriteError, setFavoriteError] = useState<string | null>(null);
   const [categories, setCategories] = useState<readonly CategoryView[]>([]);
   const [openPopover, setOpenPopover] = useState<'price' | 'region' | null>(null);
 
@@ -328,7 +329,11 @@ export function SearchPage({ query, auth }: { query: URLSearchParams; auth: Auth
         {phase === 'ready' && page !== null && page.items.length > 0 && (
           <div className="grid" aria-label="검색 결과">
             {page.items.map((product) => (
-              <ProductCardLink key={product.id} product={product} />
+              <ProductCardLink
+                key={product.id}
+                product={product}
+                onFavoriteError={setFavoriteError}
+              />
             ))}
           </div>
         )}
@@ -340,6 +345,15 @@ export function SearchPage({ query, auth }: { query: URLSearchParams; auth: Auth
           {/* §3 search row: 재시도 keeps the filters — the URL state is intact. */}
           <button className="toast-retry" type="button" onClick={() => { void load(); }}>
             재시도
+          </button>
+        </div>
+      )}
+
+      {favoriteError !== null && (
+        <div className="toast" role="alert">
+          <span>{favoriteError}</span>
+          <button className="toast-retry" type="button" onClick={() => setFavoriteError(null)}>
+            확인
           </button>
         </div>
       )}

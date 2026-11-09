@@ -1349,3 +1349,114 @@ a:hover {
     padding-top: var(--space-4);
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * 찜 토글 (card C6, §2-4 찜 계약 · design detail §6 고정 CTA바):
+ * the desktop cta-row and the mobile fixed m-cta render the 찜 icon button
+ * only — 채팅하기 is the AC3.3 intentional difference and 가격 제안 has no
+ * v1 contract. The heart follows the design mock: outline (token stroke),
+ * filled with --brand when favorited.
+ * ------------------------------------------------------------------------- */
+
+.cta-row {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-5);
+}
+
+.btn-icon {
+  width: 48px;
+  padding: 0;
+  background: var(--surface-2);
+  color: var(--text-2);
+  border: 1px solid var(--border);
+}
+
+.btn-icon:hover {
+  color: var(--text-1);
+}
+
+.fav-btn.on {
+  color: var(--brand);
+  border-color: var(--brand);
+}
+
+.fav-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* 카드 찜 아이콘 (home · search · my cards, card C6 최소 렌더, v1 토큰). */
+.card-fav {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  z-index: 2;
+  display: inline-flex;
+}
+
+.card-fav .btn-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+}
+
+.card-fav .btn-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* 모바일 고정 CTA바 (design detail §6): 찜 아이콘 버튼만 렌더된다. */
+.m-cta {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .cta-row {
+    display: none;
+  }
+
+  .m-cta {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    gap: var(--space-2);
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 10px var(--space-4) max(10px, env(safe-area-inset-bottom));
+  }
+
+  .m-cta .btn-icon {
+    width: 48px;
+    height: 48px;
+  }
+}
+
+/* my-v1 (최소, card C6): the placeholder landing sheet plus the 찜 section. */
+.my {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-6) 0 var(--space-10);
+}
+
+.my-favs {
+  width: min(920px, calc(100vw - var(--space-8)));
+}
+
+.my-favs .sec-head {
+  margin-bottom: var(--space-4);
+}
+
+@media (max-width: 767px) {
+  .my-favs {
+    width: 100%;
+    padding: 0 var(--space-4);
+  }
+}

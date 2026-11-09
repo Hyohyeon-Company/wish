@@ -35,6 +35,14 @@
  *   token is observed as a guest by the server (OptionalCurrentMemberGuard).
  * - 상태 배지: 판매중/예약중/거래완료 vocabulary shared with the feed cards
  *   (design §5); AC7.3's seller-change reflection is C7's behavior.
+ *
+ * Card C6 adds the 찜 토글 (the design's 고정 CTA바, 관찰 §6): the desktop
+ * .cta-row and the mobile fixed .m-cta both render the 찜 icon button —
+ * 채팅하기 stays unrendered (AC3.3) and 가격 제안하기 has no v1 contract.
+ * The toggle state comes from the §2-3 favorited field (null guest renders
+ * the outline heart) and POST/DELETE /api/favorites flip it (AC6.1); a
+ * guest's tap answers 401 and the session policy routes to the login screen
+ * with a returnTo back to this detail (AC6.3, A7).
  */
 import { useCallback, useEffect, useState, type ReactElement } from 'react';
 import { ApiError, NETWORK_ERROR_MESSAGE, request } from '../lib/api';
@@ -43,6 +51,7 @@ import { navigate } from '../lib/router';
 import { formatPrice, formatRelativeTime } from '../lib/time';
 import { STATUS_BADGES } from './home';
 import { CONDITIONS } from './sell';
+import { FavoriteIcon, useFavoriteToggle } from './favorite-button';
 
 /** The §2-3 detail product shape (server-projected). */
 export interface DetailProduct {
@@ -70,6 +79,7 @@ export function DetailPage({ productId }: { productId: string }): ReactElement {
   const [phase, setPhase] = useState<'loading' | 'ready' | 'notfound' | 'error'>('loading');
   const [detail, setDetail] = useState<DetailResponse | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [favoriteError, setFavoriteError] = useState<string | null>(null);
   const [imageIndex, setImageIndex] = useState(0);
 
   const load = useCallback(async (): Promise<void> => {
@@ -139,7 +149,12 @@ export function DetailPage({ productId }: { productId: string }): ReactElement {
       {phase === 'loading' && <DetailSkeleton />}
       {phase === 'notfound' && <DetailNotFound />}
       {phase === 'ready' && detail !== null && (
-        <DetailBody detail={detail} imageIndex={imageIndex} onSelectImage={setImageIndex} />
+        <DetailBody
+          detail={detail}
+          imageIndex={imageIndex}
+          onSelectImage={setImageIndex}
+          onFavoriteError={setFavoriteError}
+        />
       )}
 
       {phase === 'error' && errorMessage !== null && (
@@ -147,6 +162,15 @@ export function DetailPage({ productId }: { productId: string }): ReactElement {
           <span>{errorMessage}</span>
           <button className="toast-retry" type="button" onClick={() => { void load(); }}>
             재시도
+          </button>
+        </div>
+      )}
+
+      {favoriteError !== null && (
+        <div className="toast" role="alert">
+          <span>{favoriteError}</span>
+          <button className="toast-retry" type="button" onClick={() => setFavoriteError(null)}>
+            확인
           </button>
         </div>
       )}
@@ -158,19 +182,37 @@ function DetailBody({
   detail,
   imageIndex,
   onSelectImage,
+  onFavoriteError,
 }: {
   detail: DetailResponse;
   imageIndex: number;
   onSelectImage: (index: number) => void;
+  onFavoriteError: (message: string) => void;
 }): ReactElement {
   const { product } = detail;
   const badge = STATUS_BADGES[product.status] ?? null;
   const conditionLabel = CONDITION_LABELS.get(product.condition) ?? product.condition;
   const images = [...product.images].sort((a, b) => a.sort_order - b.sort_order);
   const current = images[imageIndex] ?? null;
+  const favorite = useFavoriteToggle({
+    productId: product.id,
+    // favorited 반영 (AC6.1): the server's answer is the initial state —
+    // a guest's null renders the outline heart.
+    initiallyFavorited: detail.favorited === true,
+    onError: onFavoriteError,
+  });
+  const favoriteIcon = (label: string): ReactElement => (
+    <FavoriteIcon
+      favorited={favorite.favorited}
+      pending={favorite.pending}
+      onToggle={() => { void favorite.toggle(); }}
+      label={label}
+    />
+  );
 
   return (
-    <main className="wrap detail">
+    <>
+      <main className="wrap detail">
       <section className="gal" aria-label="상품 이미지">
         <div
           className="gal-main"
@@ -245,8 +287,18 @@ function DetailBody({
             </tbody>
           </table>
         </div>
+        <div className="cta-row" role="group" aria-label="상품 액션">
+          {favoriteIcon('찜하기')}
+        </div>
       </section>
-    </main>
+      </main>
+
+      {/* 모바일 고정 CTA바 (design §6): the 찜 icon only — 채팅하기 is the
+          AC3.3 intentional difference, 가격 제안 has no v1 contract. */}
+      <div className="m-cta" role="group" aria-label="상품 액션">
+        {favoriteIcon('찜하기')}
+      </div>
+    </>
   );
 }
 

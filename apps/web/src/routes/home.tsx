@@ -35,6 +35,7 @@ import { ApiError, NETWORK_ERROR_MESSAGE, request } from '../lib/api';
 import type { AuthState } from '../lib/auth';
 import { navigate } from '../lib/router';
 import { formatPrice, formatRelativeTime } from '../lib/time';
+import { FavoriteButton } from './favorite-button';
 
 /** The §2-4 ProductCard shape (server-projected). Shared with search-v1 (C4). */
 export interface ProductCard {
@@ -76,6 +77,7 @@ export function HomePage({ auth }: { auth: AuthState }): ReactElement {
   const [phase, setPhase] = useState<'loading' | 'ready' | 'error'>('loading');
   const [page, setPage] = useState<ListPage | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [favoriteError, setFavoriteError] = useState<string | null>(null);
   const [categories, setCategories] = useState<readonly CategoryView[]>([]);
 
   const load = useCallback(async (): Promise<void> => {
@@ -204,7 +206,11 @@ export function HomePage({ auth }: { auth: AuthState }): ReactElement {
           {phase === 'ready' && page !== null && page.items.length > 0 && (
             <div className="grid">
               {page.items.map((product) => (
-                <ProductCardLink key={product.id} product={product} />
+                <ProductCardLink
+                  key={product.id}
+                  product={product}
+                  onFavoriteError={setFavoriteError}
+                />
               ))}
             </div>
           )}
@@ -220,13 +226,33 @@ export function HomePage({ auth }: { auth: AuthState }): ReactElement {
         </div>
       )}
 
+      {favoriteError !== null && (
+        <div className="toast" role="alert">
+          <span>{favoriteError}</span>
+          <button className="toast-retry" type="button" onClick={() => setFavoriteError(null)}>
+            확인
+          </button>
+        </div>
+      )}
+
       <FooterNav />
     </>
   );
 }
 
-/** Renders one §2-4 product card. Shared with search-v1 (C4). */
-export function ProductCardLink({ product }: { product: ProductCard }): ReactElement {
+/** Renders one §2-4 product card. Shared with search-v1 (C4) and my-v1 (C6). */
+export function ProductCardLink({
+  product,
+  initiallyFavorited = false,
+  onFavoriteError,
+  onFavoriteChanged,
+}: {
+  product: ProductCard;
+  /** my-v1's 찜 목록 renders rows that are favorited by definition. */
+  initiallyFavorited?: boolean;
+  onFavoriteError?: (message: string) => void;
+  onFavoriteChanged?: (favorited: boolean) => void;
+}): ReactElement {
   const badge = STATUS_BADGES[product.status] ?? null;
   return (
     <a
@@ -250,6 +276,16 @@ export function ProductCardLink({ product }: { product: ProductCard }): ReactEle
           </div>
         )}
         {badge !== null && <span className={`badge ${badge.className}`}>{badge.label}</span>}
+        {/* 카드 찜 아이콘 (card C6 최소 렌더, v1 토큰): the toggle lives on
+            the card; tapping it does not navigate (AC6.1의 카드 확장). */}
+        <span className="card-fav">
+          <FavoriteButton
+            productId={product.id}
+            initiallyFavorited={initiallyFavorited}
+            onError={onFavoriteError}
+            onChanged={onFavoriteChanged}
+          />
+        </span>
       </div>
       <div className="card-body">
         <div className="price">{formatPrice(product.price)}원</div>

@@ -193,7 +193,13 @@ describe('placeholder landing route (C3 update)', () => {
       token: 'tok-1',
     });
     window.history.replaceState(null, '', '/my');
-    const fetchImpl = vi.fn(async () => ({ status: 204, ok: true, text: async () => '' }) as unknown as Response);
+    const fetchImpl = vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.startsWith('/api/favorites')) {
+        return jsonResponse(200, { items: [], total: 0, page: 1, limit: 24 });
+      }
+      return { status: 204, ok: true, text: async () => '' } as unknown as Response;
+    });
     vi.stubGlobal('fetch', fetchImpl);
     render(<App />);
     expect(screen.getByText('판매자님, 환영해요')).toBeTruthy();
@@ -203,7 +209,11 @@ describe('placeholder landing route (C3 update)', () => {
     });
     expect(authStore.getState().status).toBe('guest');
     // The logout endpoint was really called with the bearer token.
-    const [input, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    const logoutCallIndex = fetchImpl.mock.calls.findIndex(
+      (call) => String(call[0]) === '/api/auth/logout',
+    );
+    expect(logoutCallIndex).toBeGreaterThanOrEqual(0);
+    const [input, init] = fetchImpl.mock.calls[logoutCallIndex] as unknown as [string, RequestInit];
     expect(input).toBe('/api/auth/logout');
     expect((init.headers as Record<string, string>)['Authorization']).toBe('Bearer tok-1');
   });
@@ -221,11 +231,17 @@ describe('placeholder landing route (C3 update)', () => {
       token: 'tok-1',
     });
     window.history.replaceState(null, '', '/my');
-    const fetchImpl = vi.fn(async () => {
+    const fetchImpl = vi.fn(async (input: string | URL | Request) => {
+      // The 찜 list loads fine; only the logout call fails — the §3 error is
+      // about the logout, not the list.
+      if (String(input).startsWith('/api/favorites')) {
+        return jsonResponse(200, { items: [], total: 0, page: 1, limit: 24 });
+      }
       throw new TypeError('Failed to fetch');
     });
     vi.stubGlobal('fetch', fetchImpl);
     render(<App />);
+    await screen.findByText('찜한 상품이 없어요');
     await user.click(screen.getByRole('button', { name: '로그아웃' }));
     await waitFor(() => {
       expect(screen.getByRole('alert').textContent).toBe('네트워크 연결을 확인해 주세요.');

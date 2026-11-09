@@ -7,8 +7,8 @@
  *   (상품상태·거래지역·등록), 판매자 닉네임·활동지역, 상태 배지 (AC3.1);
  * - 404 NOT_FOUND → 404 화면: 만료 안내 + 목록 복귀 (AC3.2);
  * - loading → skeleton first; failure → toast + 재시도 (§3 standard branch);
- * - "채팅하기" is NOT rendered anywhere (AC3.3, v1 의도적 차이) — the 찜
- *   토글 likewise stays off until card C6 owns it;
+ * - "채팅하기" is NOT rendered anywhere (AC3.3, v1 의도적 차이) — card C6
+ *   adds the 찜 토글 in its place (고정 CTA바, 찜 아이콘만);
  * - a logged-in session rides along as the Authorization header so the
  *   server can personalize favorited (C6's data source).
  */
@@ -19,6 +19,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../app';
 import { authStore } from '../lib/auth';
 import { setUnauthorizedHandler } from '../lib/api';
+import { navigate } from '../lib/router';
 
 function jsonResponse(status: number, body: unknown): Response {
   return {
@@ -53,7 +54,9 @@ function detailBody(overrides: Record<string, unknown> = {}): Record<string, unk
 
 const CALLS: Array<{ url: string; headers: Record<string, string> }> = [];
 
-function stubFetch(handler: (url: string) => Response | Promise<Response>): void {
+function stubFetch(
+  handler: (url: string) => Response | Promise<Response>,
+): void {
   CALLS.length = 0;
   vi.stubGlobal(
     'fetch',
@@ -61,6 +64,29 @@ function stubFetch(handler: (url: string) => Response | Promise<Response>): void
       const url = String(input);
       CALLS.push({ url, headers: (init?.headers ?? {}) as Record<string, string> });
       return handler(url);
+    }),
+  );
+}
+
+/** Captures method+body too — the 찜 toggle's POST/DELETE assertions need them. */
+const TOGGLES: Array<{ url: string; method: string; body: string | undefined }> = [];
+
+function stubFetchWithMethod(
+  handler: (url: string, method: string, body: string | undefined) => Response | Promise<Response>,
+): void {
+  TOGGLES.length = 0;
+  CALLS.length = 0;
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (
+      input: string | URL | Request,
+      init?: { headers?: Record<string, string>; method?: string; body?: string },
+    ) => {
+      const url = String(input);
+      const method = init?.method ?? 'GET';
+      CALLS.push({ url, headers: (init?.headers ?? {}) as Record<string, string> });
+      TOGGLES.push({ url, method, body: init?.body });
+      return handler(url, method, init?.body);
     }),
   );
 }
@@ -161,14 +187,130 @@ describe('detail binding (AC3.1)', () => {
 });
 
 describe('채팅하기 비노출 (AC3.3)', () => {
-  it('renders no 채팅하기 CTA anywhere on the screen', async () => {
+  it('renders no 채팅하기 CTA and no 가격 제안 anywhere on the screen', async () => {
     window.history.replaceState(null, '', '/products/p-1');
     stubFetch(() => jsonResponse(200, detailBody()));
     render(<App />);
     await screen.findByRole('heading', { name: '원목 식탁 4인용, 상태 좋아요 (이사 파손)' });
     expect(screen.queryByText('채팅하기')).toBeNull();
-    // The 찜 토글 is card C6's deliverable — not rendered in C5 either.
-    expect(screen.queryByLabelText('찜하기')).toBeNull();
+    // 가격 제안하기 has no v1 contract — still absent in C6.
+    expect(screen.queryByText('가격 제안하기')).toBeNull();
+  });
+});
+
+describe('찜 토글 (card C6, AC6.1 · AC6.3)', () => {
+  it('a guest tapping 찜 is routed to the login screen with a returnTo back to this detail (AC6.3, A7)', async () => {
+    const user = userEvent.setup();
+    // Mirror the production wiring (main.tsx wireUnauthorizedHandling): the
+    // handler clears the session and navigates with the returnTo reference.
+    setUnauthorizedHandler(() => {
+      authStore.clearSession();
+      const here = `${window.location.pathname}${window.location.search}`;
+      navigate(`/login?returnTo=${encodeURIComponent(here)}`);
+    });
+    window.history.replaceState(null, '', '/products/p-1');
+    stubFetchWithMethod((url, method) => {
+      if (url === '/api/products/p-1') return jsonResponse(200, detailBody());
+      if (url === '/api/favorites' && method === 'POST') {
+        return jsonResponse(401, { code: 'UNAUTHORIZED', message: '로그인이 필요해요.' });
+      }
+      return jsonResponse(500, { code: 'INTERNAL', message: 'unexpected' });
+    });
+    render(<App />);
+    await screen.findByRole('heading', { name: '원목 식탁 4인용, 상태 좋아요 (이사 파손)' });
+
+    await user.click(screen.getAllByRole('button', { name: '찜하기' })[0]!);
+
+    await waitFor(() => {
+      expect(window.location.pathname).toBe('/login');
+      expect(window.location.search).toBe('?returnTo=%2Fproducts%2Fp-1');
+    });
+  });
+
+  it('a member taps 찜: POST {product_id} with the session token, then the heart fills (채움 전환)', async () => {
+    const user = userEvent.setup();
+    authStore.applySession({
+      member: {
+        id: 'm-9',
+        email: 'viewer@example.com',
+        nickname: '구경꾼',
+        region: '논현동',
+        created_at: '2026-11-01T00:00:00.000Z',
+      },
+      token: 'token-abc',
+    });
+    window.history.replaceState(null, '', '/products/p-1');
+    stubFetchWithMethod((url, method) => {
+      if (url === '/api/products/p-1') return jsonResponse(200, { ...detailBody(), favorited: false });
+      if (url === '/api/favorites' && method === 'POST') {
+        return jsonResponse(201, { favorited: true });
+      }
+      return jsonResponse(500, { code: 'INTERNAL', message: 'unexpected' });
+    });
+    render(<App />);
+    await screen.findByRole('heading', { name: '원목 식탁 4인용, 상태 좋아요 (이사 파손)' });
+
+    // favorited=false for this member: the outline heart first.
+    for (const heart of screen.getAllByRole('button', { name: '찜하기' })) {
+      expect(heart.getAttribute('aria-pressed')).toBe('false');
+    }
+
+    await user.click(screen.getAllByRole('button', { name: '찜하기' })[0]!);
+
+    await waitFor(() => {
+      for (const heart of screen.getAllByRole('button', { name: '찜하기' })) {
+        expect(heart.getAttribute('aria-pressed')).toBe('true');
+      }
+    });
+    const post = TOGGLES.find((call) => call.url === '/api/favorites' && call.method === 'POST');
+    expect(post).toBeDefined();
+    expect(JSON.parse(post!.body ?? '{}')).toEqual({ product_id: 'p-1' });
+    const detailCall = CALLS.find((call) => call.url === '/api/favorites');
+    expect(detailCall?.headers['Authorization']).toBe('Bearer token-abc');
+  });
+
+  it('re-toggling an already-favorited product unfavorites it: DELETE then the heart clears (재토글 해제)', async () => {
+    const user = userEvent.setup();
+    authStore.applySession({
+      member: {
+        id: 'm-9',
+        email: 'viewer@example.com',
+        nickname: '구경꾼',
+        region: '논현동',
+        created_at: '2026-11-01T00:00:00.000Z',
+      },
+      token: 'token-abc',
+    });
+    window.history.replaceState(null, '', '/products/p-1');
+    stubFetchWithMethod((url, method) => {
+      if (url === '/api/products/p-1') {
+        return jsonResponse(200, { ...detailBody(), favorited: true });
+      }
+      if (url === '/api/favorites/p-1' && method === 'DELETE') {
+        return { status: 204, ok: true, text: async () => '' } as unknown as Response;
+      }
+      return jsonResponse(500, { code: 'INTERNAL', message: 'unexpected' });
+    });
+    render(<App />);
+    await screen.findByRole('heading', { name: '원목 식탁 4인용, 상태 좋아요 (이사 파손)' });
+
+    // favorited 반영 (AC6.1): the server's true renders the filled heart —
+    // the 새로고침-유지 observation rides on the same server answer.
+    for (const heart of screen.getAllByRole('button', { name: '찜하기' })) {
+      expect(heart.getAttribute('aria-pressed')).toBe('true');
+    }
+
+    await user.click(screen.getAllByRole('button', { name: '찜하기' })[0]!);
+
+    await waitFor(() => {
+      for (const heart of screen.getAllByRole('button', { name: '찜하기' })) {
+        expect(heart.getAttribute('aria-pressed')).toBe('false');
+      }
+    });
+    const remove = TOGGLES.find((call) => call.url === '/api/favorites/p-1' && call.method === 'DELETE');
+    expect(remove).toBeDefined();
+    const detailCall = CALLS.find((call) => call.url === '/api/favorites/p-1');
+    expect(detailCall?.headers['Authorization']).toBe('Bearer token-abc');
   });
 });
 
