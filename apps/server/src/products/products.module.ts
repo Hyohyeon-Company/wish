@@ -10,13 +10,21 @@ import {
 } from './application/product-use-cases';
 import { ProductRepository } from './domain/product';
 import { MemberRepository } from '../members/domain/member';
+import {
+  FavoriteProduct,
+  ListFavorites,
+  UnfavoriteProduct,
+} from '../favorites/application/favorite-use-cases';
+import { FavoriteRepository } from '../favorites/domain/favorite';
 import { CategoriesController } from '../api/categories.controller';
 import { ProductsController } from '../api/products.controller';
+import { FavoritesController } from '../api/favorites.controller';
 import { UploadedFilesController } from '../api/uploaded-files.controller';
 import { UploadsController } from '../api/uploads.controller';
 import { CurrentMemberGuard, OptionalCurrentMemberGuard } from '../api/current-member.guard';
 import { InMemoryProductRepository } from './infrastructure/in-memory-product.repository';
-import { InMemoryFavoriteReader } from './infrastructure/in-memory-favorite.reader';
+import { InMemoryFavoriteRepository } from '../favorites/infrastructure/in-memory-favorite.repository';
+import { FavoriteRepositoryLookup } from '../favorites/infrastructure/favorite-repository.lookup';
 import { LocalImageStore } from './infrastructure/local-image-store';
 import { AuthModule } from '../auth.module';
 
@@ -32,6 +40,7 @@ import { AuthModule } from '../auth.module';
     CategoriesController,
     UploadsController,
     ProductsController,
+    FavoritesController,
     UploadedFilesController,
   ],
   providers: [
@@ -58,7 +67,35 @@ import { AuthModule } from '../auth.module';
       useFactory: (products: ProductRepository) => new ListProducts(products),
       inject: [ProductRepository],
     },
-    { provide: FavoriteLookup, useClass: InMemoryFavoriteReader },
+    // One favorites store serves both directions: the §2-4 endpoints' write
+    // side (FavoriteRepository) and the detail's favorited personalization
+    // (FavoriteLookup port — card C6 replaced the C5-time false stub behind
+    // the same port, without touching ReadProductDetail or the contract).
+    { provide: FavoriteRepository, useClass: InMemoryFavoriteRepository },
+    {
+      provide: FavoriteLookup,
+      useFactory: (favorites: FavoriteRepository) => new FavoriteRepositoryLookup(favorites),
+      inject: [FavoriteRepository],
+    },
+    {
+      provide: FavoriteProduct,
+      useFactory: (
+        products: ProductRepository,
+        favorites: FavoriteRepository,
+      ) => new FavoriteProduct(products, favorites),
+      inject: [ProductRepository, FavoriteRepository],
+    },
+    {
+      provide: UnfavoriteProduct,
+      useFactory: (favorites: FavoriteRepository) => new UnfavoriteProduct(favorites),
+      inject: [FavoriteRepository],
+    },
+    {
+      provide: ListFavorites,
+      useFactory: (favorites: FavoriteRepository, products: ProductRepository) =>
+        new ListFavorites(favorites, products),
+      inject: [FavoriteRepository, ProductRepository],
+    },
     {
       provide: ReadProductDetail,
       useFactory: (

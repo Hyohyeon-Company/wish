@@ -3,19 +3,28 @@
  * checks (§2-3 GET /api/products/{id}): the 404 NOT_FOUND boundary for a
  * missing AND a soft-deleted product (AC3.2), the images array's
  * sort_order-ascending display order regardless of stored row order, and
- * the favorited contract — 로그인 viewer → bool, 비로그인 → null — including
- * the port passthrough that card C6's real favorites adapter will slot into.
+ * the favorited contract — 로그인 viewer → bool, 비로그인 → null — now
+ * answered by the real favorites adapter (card C6 replaced the C5 seam).
  */
 import 'reflect-metadata';
 import { Member, MemberRepository, type PasswordHasher } from '../../src/members/domain/member';
 import { Product, type ProductSnapshot } from '../../src/products/domain/product';
 import {
-  FavoriteLookup,
   ReadProductDetail,
 } from '../../src/products/application/product-use-cases';
-import { InMemoryFavoriteReader } from '../../src/products/infrastructure/in-memory-favorite.reader';
+import { Favorite } from '../../src/favorites/domain/favorite';
+import { InMemoryFavoriteRepository } from '../../src/favorites/infrastructure/in-memory-favorite.repository';
+import { FavoriteRepositoryLookup } from '../../src/favorites/infrastructure/favorite-repository.lookup';
 import { InMemoryProductRepository } from '../../src/products/infrastructure/in-memory-product.repository';
 import { DomainError } from '../../src/shared/domain-error';
+
+/**
+ * The real favorites store behind the FavoriteLookup port — since card C6
+ * the adapter is the actual favorites aggregate, not the C5-time false stub.
+ */
+function realFavorites(): FavoriteRepositoryLookup {
+  return new FavoriteRepositoryLookup(new InMemoryFavoriteRepository());
+}
 
 const stubHasher = {
   hash: async (plain: string) => `hash(${plain})`,
@@ -46,16 +55,6 @@ class FakeMemberRepository extends MemberRepository {
     return this.member;
   }
   async save(): Promise<void> {}
-}
-
-/** FavoriteLookup stub with a pre-set answer — the C6 contract passthrough. */
-class StubFavoriteLookup extends FavoriteLookup {
-  constructor(private readonly answer: boolean) {
-    super();
-  }
-  async isFavorite(): Promise<boolean> {
-    return this.answer;
-  }
 }
 
 const SELL_FORM = {
@@ -103,7 +102,7 @@ describe('ReadProductDetail (§2-3 GET /api/products/{id})', () => {
     const detail = new ReadProductDetail(
       products,
       new FakeMemberRepository(await seedMember('seller-1', '판매자')),
-      new InMemoryFavoriteReader(),
+      realFavorites(),
     );
 
     const response = await detail.execute('product-1', null);
@@ -137,7 +136,7 @@ describe('ReadProductDetail (§2-3 GET /api/products/{id})', () => {
     const detail = new ReadProductDetail(
       products,
       new FakeMemberRepository(await seedMember('seller-1', '샘플판매자')),
-      new InMemoryFavoriteReader(),
+      realFavorites(),
     );
 
     const { product } = await detail.execute('product-1', null);
@@ -151,22 +150,26 @@ describe('ReadProductDetail (§2-3 GET /api/products/{id})', () => {
     const detail = new ReadProductDetail(
       products,
       new FakeMemberRepository(await seedMember('seller-1', '판매자')),
-      new InMemoryFavoriteReader(),
+      realFavorites(),
     );
 
-    // No favorites can exist yet (card C6 owns the writes), so the honest
-    // boolean is false — never null for a logged-in viewer.
+    // The real favorites store starts empty (no favorite saved yet), so the
+    // honest boolean is false — never null for a logged-in viewer.
     const response = await detail.execute('product-1', viewer);
     expect(response.favorited).toBe(false);
   });
 
-  it('passes the favorites port answer through as the boolean (C6 seam)', async () => {
+  it('answers favorited true once the member actually favorited (C6 adapter)', async () => {
     await seedProduct(products);
     const viewer = await seedMember('viewer-1', '구경꾼');
+    const favorites = new InMemoryFavoriteRepository();
+    await favorites.save(
+      Favorite.create(viewer.id, 'product-1', () => new Date('2026-11-09T11:00:00.000Z')),
+    );
     const detail = new ReadProductDetail(
       products,
       new FakeMemberRepository(await seedMember('seller-1', '판매자')),
-      new StubFavoriteLookup(true),
+      new FavoriteRepositoryLookup(favorites),
     );
 
     const response = await detail.execute('product-1', viewer);
@@ -177,7 +180,7 @@ describe('ReadProductDetail (§2-3 GET /api/products/{id})', () => {
     const detail = new ReadProductDetail(
       products,
       new FakeMemberRepository(null),
-      new InMemoryFavoriteReader(),
+      realFavorites(),
     );
 
     await expect(detail.execute('product-unknown', null)).rejects.toMatchObject({
@@ -199,7 +202,7 @@ describe('ReadProductDetail (§2-3 GET /api/products/{id})', () => {
     const detail = new ReadProductDetail(
       products,
       new FakeMemberRepository(null),
-      new InMemoryFavoriteReader(),
+      realFavorites(),
     );
 
     await expect(detail.execute('product-1', null)).rejects.toMatchObject({
@@ -225,7 +228,7 @@ describe('ReadProductDetail (§2-3 GET /api/products/{id})', () => {
     const detail = new ReadProductDetail(
       products,
       new FakeMemberRepository(await seedMember('seller-1', '판매자')),
-      new InMemoryFavoriteReader(),
+      realFavorites(),
     );
 
     const { product } = await detail.execute('product-1', null);
@@ -241,7 +244,7 @@ describe('ReadProductDetail (§2-3 GET /api/products/{id})', () => {
     const detail = new ReadProductDetail(
       products,
       new FakeMemberRepository(null),
-      new InMemoryFavoriteReader(),
+      realFavorites(),
     );
 
     await expect(detail.execute('', null)).rejects.toMatchObject({ code: 'NOT_FOUND' });
@@ -251,7 +254,7 @@ describe('ReadProductDetail (§2-3 GET /api/products/{id})', () => {
     const detail = new ReadProductDetail(
       products,
       new FakeMemberRepository(null),
-      new InMemoryFavoriteReader(),
+      realFavorites(),
     );
 
     const error = await detail.execute('product-unknown', null).catch(

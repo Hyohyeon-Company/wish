@@ -13,9 +13,10 @@
  *   /login   — login-v1
  *   /signup  — signup-v1
  *   /sell    — sell-v1 (guest → login redirect, AC4.1)
- *   /my      — placeholder landing: the session observation surface (logout,
- *             AC5.1) until C8 renders my-v1; guests are login-redirected
- *             with returnTo (마이 is an authenticated destination).
+ *   /my      — my-v1 (최소): the 찜 section (card C6, AC6.2) plus the
+ *             session observation surface (logout, AC5.1); guests are
+ *             login-redirected with returnTo (마이 is an authenticated
+ *             destination). C8 completes my-v1 with 내 등록 상품.
  *   anything else — public destinations awaiting their slice. Until the
  *             owning card renders the screen, arriving at such a URL
  *             returns to the home feed (the design's 목록 복귀 pattern).
@@ -25,8 +26,8 @@ import { authStore, type AuthState } from './lib/auth';
 import { navigate, useLocation } from './lib/router';
 import { DetailPage } from './routes/detail';
 import { HomePage } from './routes/home';
-import { LandingPage } from './routes/landing';
 import { LoginPage } from './routes/login';
+import { MyPage } from './routes/my';
 import { SearchPage } from './routes/search';
 import { SellRoute } from './routes/sell';
 import { SignupPage } from './routes/signup';
@@ -43,11 +44,11 @@ export function App(): ReactElement {
   if (location.path === '/login') return <LoginPage />;
   if (location.path === '/signup') return <SignupPage />;
   if (location.path === '/sell') return <SellRoute location={location.path} auth={auth} />;
-  if (location.path === '/my') return <LandingRoute location={location.path} auth={auth} />;
+  if (location.path === '/my') return <MyRoute location={location.path} auth={auth} />;
   return <UnbuiltPublicRoute location={location.path} />;
 }
 
-function LandingRoute({ location, auth }: { location: string; auth: AuthState }): ReactElement {
+function MyRoute({ location, auth }: { location: string; auth: AuthState }): ReactElement {
   useEffect(() => {
     if (auth.status === 'guest') {
       navigate(`/login?returnTo=${encodeURIComponent(location)}`, { replace: true });
@@ -55,7 +56,7 @@ function LandingRoute({ location, auth }: { location: string; auth: AuthState })
   }, [auth.status, location]);
 
   if (auth.status === 'authenticated' && auth.member !== null) {
-    return <LandingPage member={auth.member} />;
+    return <MyPage member={auth.member} />;
   }
   // 'unknown' (boot in flight) and the guest redirect frame render nothing —
   // an empty frame beats flashing the wrong screen.

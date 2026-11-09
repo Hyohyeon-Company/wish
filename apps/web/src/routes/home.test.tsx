@@ -15,6 +15,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../app';
 import { authStore } from '../lib/auth';
 import { setUnauthorizedHandler } from '../lib/api';
+import { navigate } from '../lib/router';
 
 function jsonResponse(status: number, body: unknown): Response {
   return {
@@ -334,5 +335,72 @@ describe('entries to /search (A3/A4 destinations)', () => {
       await screen.findByRole('link', { name: '디지털' }),
     ).toBeTruthy();
     expect(screen.getByRole('link', { name: '디지털' }).getAttribute('aria-current')).toBe('true');
+  });
+});
+
+describe('카드 찜 토글 (card C6, 최소 렌더 · AC6.3)', () => {
+  function feedWithFavorites(
+    favorites: (url: string, method: string) => Response | Promise<Response>,
+  ): ReturnType<typeof vi.fn> {
+    const fetchImpl = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (feedUrl(url)) return jsonResponse(200, { items: [card()], total: 1, page: 1, limit: 24 });
+      if (url.endsWith('/api/categories')) return jsonResponse(200, CATEGORIES);
+      return favorites(url, init?.method ?? 'GET');
+    });
+    vi.stubGlobal('fetch', fetchImpl);
+    return fetchImpl;
+  }
+
+  it('a member tapping a card heart POSTs /api/favorites with the session token', async () => {
+    const user = userEvent.setup();
+    authStore.applySession({
+      member: {
+        id: 'm-9',
+        email: 'viewer@example.com',
+        nickname: '구경꾼',
+        region: '논현동',
+        created_at: '2026-11-01T00:00:00.000Z',
+      },
+      token: 'tok-9',
+    });
+    feedWithFavorites((url, method) => {
+      if (url === '/api/favorites' && method === 'POST') {
+        return jsonResponse(201, { favorited: true });
+      }
+      return jsonResponse(500, { code: 'INTERNAL', message: 'unexpected' });
+    });
+    render(<App />);
+    await screen.findByText('아이패드 에어 5세대 64기가');
+
+    const heart = screen.getAllByRole('button', { name: '찜하기' })[0]!;
+    expect(heart.getAttribute('aria-pressed')).toBe('false');
+    await user.click(heart);
+    await waitFor(() => {
+      expect(heart.getAttribute('aria-pressed')).toBe('true');
+    });
+    // The tap was the toggle, not the navigation: the feed screen stays.
+    expect(window.location.pathname).toBe('/');
+  });
+
+  it('a guest tapping a card heart routes to the login screen with a returnTo (AC6.3)', async () => {
+    const user = userEvent.setup();
+    // Mirror the production wiring (main.tsx wireUnauthorizedHandling).
+    setUnauthorizedHandler(() => {
+      authStore.clearSession();
+      const here = `${window.location.pathname}${window.location.search}`;
+      navigate(`/login?returnTo=${encodeURIComponent(here)}`);
+    });
+    feedWithFavorites(() =>
+      jsonResponse(401, { code: 'UNAUTHORIZED', message: '로그인이 필요해요.' }),
+    );
+    render(<App />);
+    await screen.findByText('아이패드 에어 5세대 64기가');
+
+    await user.click(screen.getAllByRole('button', { name: '찜하기' })[0]!);
+    await waitFor(() => {
+      expect(window.location.pathname).toBe('/login');
+      expect(window.location.search).toBe('?returnTo=%2F');
+    });
   });
 });
