@@ -104,7 +104,10 @@ export async function request<T = unknown>(
 ): Promise<ApiResponse<T>> {
   const doFetch = options.fetchImpl ?? fetch;
   const headers: Record<string, string> = {};
-  if (options.body !== undefined) headers['Content-Type'] = 'application/json';
+  if (options.body instanceof FormData) {
+    // Multipart body: the browser supplies Content-Type with the boundary —
+    // a manual header would break it (POST /api/uploads, §2-2).
+  } else if (options.body !== undefined) headers['Content-Type'] = 'application/json';
   if (options.token) headers['Authorization'] = `Bearer ${options.token}`;
 
   let response: Response;
@@ -112,7 +115,12 @@ export async function request<T = unknown>(
     response = await doFetch(`${options.baseUrl ?? BASE_URL}${path}`, {
       method: options.method ?? 'GET',
       headers,
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      body:
+        options.body === undefined
+          ? undefined
+          : options.body instanceof FormData
+            ? (options.body as FormData)
+            : JSON.stringify(options.body),
     });
   } catch {
     throw new ApiError(0, 'NETWORK', NETWORK_ERROR_MESSAGE, { network: true });

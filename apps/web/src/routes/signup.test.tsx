@@ -124,7 +124,19 @@ describe('SignupPage', () => {
   it('starts the session on 201 and navigates to returnTo (auto session, B1)', async () => {
     const user = userEvent.setup();
     window.history.replaceState(null, '', '/signup?returnTo=%2Fsell');
-    const fetchImpl = vi.fn(async () => jsonResponse(201, { member: MEMBER, token: 'tok-1' }));
+    const fetchImpl = vi.fn(async (input: string | URL | Request) => {
+      // C2: /sell is now a real route — the sell-v1 form loads its categories.
+      if (String(input).endsWith('/api/categories')) {
+        return jsonResponse(200, [
+          { code: 'furniture', name: '가구/인테리어', display_order: 1 },
+          { code: 'digital', name: '디지털', display_order: 2 },
+          { code: 'fashion', name: '의류', display_order: 3 },
+          { code: 'beauty', name: '뷰티', display_order: 4 },
+          { code: 'sports', name: '스포츠/레저', display_order: 5 },
+        ]);
+      }
+      return jsonResponse(201, { member: MEMBER, token: 'tok-1' });
+    });
     vi.stubGlobal('fetch', fetchImpl);
     render(<App />);
     await fillForm(user);
@@ -134,8 +146,9 @@ describe('SignupPage', () => {
     });
     expect(authStore.getState().status).toBe('authenticated');
     expect(window.localStorage.getItem('wish.auth.token')).toBe('tok-1');
-    // The landing greets the freshly signed-up member.
-    expect(screen.getByText('판매자님, 환영해요')).toBeTruthy();
+    // C2: returnTo=/sell now lands on the sell-v1 form itself, no longer the
+    // placeholder landing this test observed before the route existed.
+    expect(screen.getByText('판매 등록')).toBeTruthy();
   });
 
   it('shows the server message as a form error for other failures', async () => {
