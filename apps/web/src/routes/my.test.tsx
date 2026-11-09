@@ -28,6 +28,10 @@ function noContent(): Response {
   return { status: 204, ok: true, text: async () => '' } as unknown as Response;
 }
 
+function emptyPage(): Record<string, unknown> {
+  return { items: [], total: 0, page: 1, limit: 24 };
+}
+
 const CALLS: Array<{ url: string; method: string }> = [];
 
 function card(id: string, title: string): Record<string, unknown> {
@@ -174,5 +178,113 @@ describe('my 찜 섹션 (card C6, AC6.2)', () => {
     ).toBe(true);
     // The list was really re-requested after the unfavorite.
     expect(calls.filter((call) => call.url === '/api/favorites?page=1&limit=24')).toHaveLength(2);
+  });
+});
+
+/**
+ * my-v1 상태 흐름 (card C8): the 내 등록 상품 section's own state flow on
+ * top of the C7 승계 — the PATCH flow from the my row (B10), the SOLD 행
+ * dimming on .my-row-link (C7 review observation ①) with the terminal
+ * 거래완료 rendering no 상태 변경 UI, and the §3 my-v1 (내 등록 상품) row's
+ * 오류 토스트 + 재시도, independent of the 찜 section.
+ */
+describe('my 내 등록 상품 상태 흐름 (card C8)', () => {
+  it('a SOLD row dims via .my-row-link.done, offers no 상태 변경 UI, and keeps 삭제 (B11/관찰 ①)', async () => {
+    const fetchImpl = vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url === '/api/me/products?page=1&limit=24') {
+        return jsonResponse(200, {
+          items: [card('p-1', '원목 의자'), { ...card('p-2', '원목 책상'), status: 'SOLD' }],
+          total: 2,
+          page: 1,
+          limit: 24,
+        });
+      }
+      if (url.startsWith('/api/favorites')) return jsonResponse(200, emptyPage());
+      return jsonResponse(500, { code: 'INTERNAL', message: 'unexpected' });
+    });
+    vi.stubGlobal('fetch', fetchImpl);
+    window.history.replaceState(null, '', '/my');
+    render(<App />);
+
+    expect(await screen.findByText('원목 의자')).toBeTruthy();
+    // The dimming rides .my-row-link (where `done` is actually applied) —
+    // the pre-C8 dead selector .my-row.done never rendered.
+    const soldLink = Array.from(document.querySelectorAll<HTMLAnchorElement>('.my-row-link')).find(
+      (link) => link.textContent?.includes('원목 책상'),
+    );
+    expect(soldLink).toBeDefined();
+    expect(soldLink!.classList.contains('done')).toBe(true);
+    const activeLink = Array.from(document.querySelectorAll<HTMLAnchorElement>('.my-row-link')).find(
+      (link) => link.textContent?.includes('원목 의자'),
+    );
+    expect(activeLink!.classList.contains('done')).toBe(false);
+    // 거래완료 is terminal: that row renders no 상태 변경 UI; 삭제 stays (B12).
+    const soldRow = soldLink!.closest('li');
+    expect(soldRow).toBeDefined();
+    expect(soldRow!.querySelector('.status-actions')).toBeNull();
+    expect(soldRow!.querySelector('.text-danger')).not.toBeNull();
+  });
+
+  it('a 상태 변경 from the my row PATCHes, re-renders from the server answer, and re-requests the list (B10)', async () => {
+    let serverStatus = 'ACTIVE';
+    let listRequests = 0;
+    const fetchImpl = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (url === '/api/me/products?page=1&limit=24') {
+        listRequests += 1;
+        return jsonResponse(200, {
+          items: [{ ...card('p-1', '원목 의자'), status: serverStatus }],
+          total: 1,
+          page: 1,
+          limit: 24,
+        });
+      }
+      if (url.startsWith('/api/favorites')) return jsonResponse(200, emptyPage());
+      if (url === '/api/products/p-1/status' && init?.method === 'PATCH') {
+        serverStatus = (JSON.parse(String(init.body) as string) as { status: string }).status;
+        return jsonResponse(200, { product: { id: 'p-1', status: serverStatus } });
+      }
+      return jsonResponse(500, { code: 'INTERNAL', message: 'unexpected' });
+    });
+    vi.stubGlobal('fetch', fetchImpl);
+    const user = userEvent.setup();
+    window.history.replaceState(null, '', '/my');
+    render(<App />);
+
+    await user.click(await screen.findByText('예약중(으)로 변경'));
+    await waitFor(() => {
+      // AC7.3 from the my row too: the badge re-renders from the server's
+      // answer, and the section re-requests the server's truth.
+      expect(listRequests).toBe(2);
+    });
+    expect(screen.getByText('예약중')).toBeTruthy();
+    // After the server answer, the next legal targets follow the 전이표.
+    expect(await screen.findByText('판매중(으)로 변경')).toBeTruthy();
+    expect(screen.queryByText('예약중(으)로 변경')).toBeNull();
+  });
+
+  it('a 내 등록 상품 failure shows its own 오류 토스트 and 재시도 re-requests it (§3 my-v1 (내 등록 상품))', async () => {
+    let productsFail = true;
+    const fetchImpl = vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.startsWith('/api/me/products')) {
+        if (productsFail) return jsonResponse(500, { code: 'INTERNAL', message: '서버에 문제가 발생했어요.' });
+        return jsonResponse(200, emptyPage());
+      }
+      if (url.startsWith('/api/favorites')) return jsonResponse(200, emptyPage());
+      return jsonResponse(500, { code: 'INTERNAL', message: 'unexpected' });
+    });
+    vi.stubGlobal('fetch', fetchImpl);
+    const user = userEvent.setup();
+    window.history.replaceState(null, '', '/my');
+    render(<App />);
+
+    const alerts = await screen.findAllByRole('alert');
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0]!.textContent).toContain('서버에 문제가 발생했어요.');
+    productsFail = false;
+    await user.click(screen.getByRole('button', { name: '재시도' }));
+    expect(await screen.findByText('등록한 상품이 없어요')).toBeTruthy();
   });
 });

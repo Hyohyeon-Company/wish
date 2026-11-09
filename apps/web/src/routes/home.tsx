@@ -336,9 +336,8 @@ export function EmptyFeed(): ReactElement {
 
 /**
  * The 모바일 하단 탭바 (design §5, brief §7): 홈·검색·판매·마이 4탭 — the
- * 채팅 tab is intentionally not rendered (v1 비노출, §4a/§7). 마이 routes to
- * the placeholder landing until card C8 replaces it. `active` marks the
- * current tab (search-v1 passes '/search'); 홈 remains the default.
+ * 채팅 tab is intentionally not rendered (v1 비노출, §4a/§7). `active`
+ * marks the current tab (search-v1 passes '/search'); 홈 remains the default.
  */
 export function FooterNav({ active = '/' }: { active?: string }): ReactElement {
   const current = (tab: string): 'true' | undefined =>

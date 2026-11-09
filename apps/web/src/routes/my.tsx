@@ -1,11 +1,15 @@
 /**
- * my-v1 (최소) — the /my screen's 찜 section (journey A10, card C6, AC6.2),
- * with the session observation surface (AC5.1 logout) kept from the
- * placeholder landing. Card C8 completes my-v1 with the 내 등록 상품 section
- * and the status-change entries.
+ * my-v1 — the /my screen (card C8, AC8.1): the "내 등록 상품" section (C7
+ * 승계, §2-4 GET /api/me/products — own rows with 상태 배지·변경 입구·삭제)
+ * and the "찜" section (C6 승계, §2-4 GET /api/favorites), plus the session
+ * observation surface (AC5.1 logout). The 4탭 tab bar (홈·검색·판매·마이)
+ * routes here without the 채팅 tab (v1 비노출).
  *
- * Data binding is the §2-4 GET /api/favorites contract:
- * {items: [ProductCard 최신 찜순], total, page, limit}.
+ * my-v1 — the /my screen (card C8, AC8.1): both sections bind the §2-4
+ * contracts —
+ *   내 등록 상품 ← GET /api/me/products (C7 승계, ProductCard + status);
+ *   찜          ← GET /api/favorites  (C6 승계, ProductCard 최신 찜순):
+ * {items, total, page, limit}.
  *
  * Contract behavior (§3 my-v1 (찜) row):
  * - loading → skeleton first; no spinner.

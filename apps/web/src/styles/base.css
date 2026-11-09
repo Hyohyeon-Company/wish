@@ -1534,7 +1534,10 @@ a:hover {
   border-radius: var(--radius-card);
 }
 
-.my-row.done {
+/* SOLD 행 dimming (C8, C7 리뷰 관찰 ①): `done` lands on .my-row-link
+ * (my.tsx), not .my-row — the old .my-row.done selector was dead and the
+ * dimming never rendered. */
+.my-row-link.done {
   opacity: 0.6;
 }
 
