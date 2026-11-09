@@ -331,3 +331,132 @@ describe('응답 프로젝션 (§2-4 ProductCard)', () => {
     expect(items[0]?.thumbnail_url).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// C4 검색 슬라이스 (card C4): 검색 특화 규칙 — AC2.1 부분 일치의 세부 근거,
+// RF4 특수문자 처리, A3+A4 검색어×필터 조합, AC2.3 정렬 전환.
+// 검색 매칭 방식(대소문자 무시 literal 부분 일치 — SQL LIKE 상응)은 C3에서
+// product-listing.ts 헤더에 근거와 함께 기록되어 있고, 여기서 그 계약을
+// 검색 관점에서 검증한다.
+// ---------------------------------------------------------------------------
+
+describe('검색 부분 일치 세부 규칙 (C4, AC2.1)', () => {
+  it('matches ASCII keywords case-insensitively (대소문자 무시)', async () => {
+    const products = new InMemoryProductRepository();
+    await seed(products, { title: 'LEGO 클래식 박스' });
+    await seed(products, { title: 'AirPods Pro Case' });
+
+    const useCase = new ListProducts(products);
+    expect((await useCase.execute({ q: 'lego' })).items[0]?.title).toBe('LEGO 클래식 박스');
+    expect((await useCase.execute({ q: 'LEGO' })).total).toBe(1);
+    expect((await useCase.execute({ q: 'airpods PRO case' })).total).toBe(1);
+  });
+
+  it('treats special characters as literal text, not wildcards or patterns (RF4)', async () => {
+    const products = new InMemoryProductRepository();
+    await seed(products, { title: 'C++ 입문서 (정품)' });
+    await seed(products, { title: '100% 코튼 티셔츠' });
+
+    const useCase = new ListProducts(products);
+    // A literal special-character keyword matches only the title containing it.
+    expect((await useCase.execute({ q: 'C++' })).items[0]?.title).toBe('C++ 입문서 (정품)');
+    expect((await useCase.execute({ q: '(정품)' })).total).toBe(1);
+    expect((await useCase.execute({ q: '100%' })).total).toBe(1);
+    // Pattern-like input ends in a normal empty result — never a 500/400.
+    expect((await useCase.execute({ q: '.*' })).total).toBe(0);
+    expect((await useCase.execute({ q: '[C++]+' })).total).toBe(0);
+    expect((await useCase.execute({ q: '%%' })).total).toBe(0);
+  });
+
+  it('trims surrounding whitespace so a spaced keyword still matches (A3)', async () => {
+    const products = new InMemoryProductRepository();
+    await seed(products, { title: '원목 책장 6단' });
+
+    const page = await new ListProducts(products).execute({ q: '  책장  ' });
+    expect(page.total).toBe(1);
+  });
+});
+
+describe('검색어 × 필터 조합 (C4, AC2.2 — A3+A4 합쳐진 질의)', () => {
+  it('narrows a keyword search further by category (q × category)', async () => {
+    const products = new InMemoryProductRepository();
+    await seed(products, { title: '원목 책장', categoryCode: 'furniture' });
+    await seed(products, { title: '책장용 조명', categoryCode: 'digital' });
+
+    const useCase = new ListProducts(products);
+    expect((await useCase.execute({ q: '책장' })).total).toBe(2);
+    const narrowed = await useCase.execute({ q: '책장', category: 'furniture' });
+    expect(narrowed.total).toBe(1);
+    expect(narrowed.items[0]?.title).toBe('원목 책장');
+  });
+
+  it('combines q with status and the price range in one query', async () => {
+    const products = new InMemoryProductRepository();
+    await seed(products, { title: '매칭 책장', price: 50000, status: 'RESERVED' });
+    await seed(products, { title: '상태 다른 책장', price: 50000, status: 'ACTIVE' });
+    await seed(products, { title: '가격 다른 책장', price: 49000, status: 'RESERVED' });
+
+    const page = await new ListProducts(products).execute({
+      q: '책장',
+      status: 'RESERVED',
+      min_price: '50000',
+    });
+    expect(page.total).toBe(1);
+    expect(page.items[0]?.title).toBe('매칭 책장');
+  });
+});
+
+describe('정렬 전환 (C4, AC2.3 — 같은 필터 결과에서 순서가 실제로 바뀐다)', () => {
+  it('orders the same filtered set differently per sort and restores latest', async () => {
+    const products = new InMemoryProductRepository();
+    await seed(products, {
+      title: '책장 A',
+      price: 30000,
+      categoryCode: 'furniture',
+      createdAt: new Date('2026-11-01T09:00:00.000Z'),
+    });
+    await seed(products, {
+      title: '책장 B',
+      price: 10000,
+      categoryCode: 'furniture',
+      createdAt: new Date('2026-11-05T09:00:00.000Z'),
+    });
+    await seed(products, {
+      title: '책장 C',
+      price: 20000,
+      categoryCode: 'furniture',
+      createdAt: new Date('2026-11-09T09:00:00.000Z'),
+    });
+
+    const useCase = new ListProducts(products);
+    const query = { q: '책장', category: 'furniture' };
+    expect((await useCase.execute({ ...query, sort: 'latest' })).items.map((i) => i.title)).toEqual([
+      '책장 C',
+      '책장 B',
+      '책장 A',
+    ]);
+    expect(
+      (await useCase.execute({ ...query, sort: 'price_asc' })).items.map((i) => i.title),
+    ).toEqual(['책장 B', '책장 C', '책장 A']);
+    expect(
+      (await useCase.execute({ ...query, sort: 'price_desc' })).items.map((i) => i.title),
+    ).toEqual(['책장 A', '책장 C', '책장 B']);
+    // 전환 후 복귀도 같은 필터 상태에서 원순서로 돌아온다.
+    expect((await useCase.execute({ ...query, sort: 'latest' })).items.map((i) => i.title)).toEqual([
+      '책장 C',
+      '책장 B',
+      '책장 A',
+    ]);
+  });
+
+  it('keeps the total stable across sort switches (0건 필터에서도 전환 가능)', async () => {
+    const products = new InMemoryProductRepository();
+    await seed(products, { title: '책장', categoryCode: 'furniture' });
+
+    const useCase = new ListProducts(products);
+    const matched = await useCase.execute({ q: '책장', sort: 'price_asc' });
+    const empty = await useCase.execute({ q: '없는검색어', sort: 'price_desc' });
+    expect(matched.total).toBe(1);
+    expect(empty).toEqual({ items: [], total: 0, page: 1, limit: 24 });
+  });
+});

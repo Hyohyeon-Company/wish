@@ -1,17 +1,20 @@
 /**
- * Route table after the home-feed slice (C3):
+ * Route table after the search slice (C4):
  *   /        — home-v1, the PUBLIC feed (AC1.1: 로그인 없이 홈 접속; the
  *             pre-C3 guest redirect at / was the placeholder posture and is
  *             superseded here).
+ *   /search  — search-v1, the PUBLIC search/category screen (A3/A4, card C4;
+ *             §3 marks search as 공개 화면, so a guest must NOT be
+ *             login-redirected there).
  *   /login   — login-v1
  *   /signup  — signup-v1
  *   /sell    — sell-v1 (guest → login redirect, AC4.1)
  *   /my      — placeholder landing: the session observation surface (logout,
  *             AC5.1) until C8 renders my-v1; guests are login-redirected
  *             with returnTo (마이 is an authenticated destination).
- *   anything else — public destinations awaiting their slice (/search → C4,
- *             /products/{id} → C5). §3 marks search/detail as 공개 화면, so
- *             a guest must NOT be login-redirected there; until the owning
+ *   anything else — public destinations awaiting their slice
+ *             (/products/{id} → C5). §3 marks detail as 공개 화면, so a
+ *             guest must NOT be login-redirected there; until the owning
  *             card renders the screen, arriving at such a URL returns to the
  *             home feed (the design's 목록 복귀 pattern).
  */
@@ -21,6 +24,7 @@ import { navigate, useLocation } from './lib/router';
 import { HomePage } from './routes/home';
 import { LandingPage } from './routes/landing';
 import { LoginPage } from './routes/login';
+import { SearchPage } from './routes/search';
 import { SellRoute } from './routes/sell';
 import { SignupPage } from './routes/signup';
 
@@ -29,6 +33,7 @@ export function App(): ReactElement {
   const auth = useAuthState();
 
   if (location.path === '/') return <HomePage auth={auth} />;
+  if (location.path === '/search') return <SearchPage query={location.query} auth={auth} />;
   if (location.path === '/login') return <LoginPage />;
   if (location.path === '/signup') return <SignupPage />;
   if (location.path === '/sell') return <SellRoute location={location.path} auth={auth} />;

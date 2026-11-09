@@ -135,4 +135,65 @@ describe('GET /api/products (§2-3)', () => {
     expect(response.body.total).toBe(1);
     expect(response.body.items[0]?.title).toBe('방금 등록한 상품');
   });
+
+  // -- C4 검색 슬라이스: 검색어 × 필터 조합·정렬 전환·특수문자 over real HTTP --
+
+  it('narrows a keyword search by the category filter (A3+A4, AC2.2)', async () => {
+    await createListing({ title: '레고 클래식 박스', category_code: 'digital' });
+    await createListing({ title: '레고 호환 테이블', category_code: 'furniture' });
+
+    const both = await request(server)
+      .get(`/api/products?q=${encodeURIComponent('레고')}`)
+      .expect(200);
+    expect(both.body.total).toBe(2);
+
+    const narrowed = await request(server)
+      .get(`/api/products?q=${encodeURIComponent('레고')}&category=furniture`)
+      .expect(200);
+    expect(narrowed.body.total).toBe(1);
+    expect(narrowed.body.items[0]?.title).toBe('레고 호환 테이블');
+  });
+
+  it('switching the sort value reorders the same filtered result (AC2.3)', async () => {
+    await createListing({ title: '정렬시험 상품 A', price: 30000 });
+    await createListing({ title: '정렬시험 상품 B', price: 10000 });
+    await createListing({ title: '정렬시험 상품 C', price: 20000 });
+    const q = encodeURIComponent('정렬시험');
+
+    const asc = await request(server).get(`/api/products?q=${q}&sort=price_asc`).expect(200);
+    expect(asc.body.items.map((item: { title: string }) => item.title)).toEqual([
+      '정렬시험 상품 B',
+      '정렬시험 상품 C',
+      '정렬시험 상품 A',
+    ]);
+
+    const desc = await request(server).get(`/api/products?q=${q}&sort=price_desc`).expect(200);
+    expect(desc.body.items.map((item: { title: string }) => item.title)).toEqual([
+      '정렬시험 상품 A',
+      '정렬시험 상품 C',
+      '정렬시험 상품 B',
+    ]);
+  });
+
+  it('answers a special-character keyword with a literal match and 200 (RF4)', async () => {
+    await createListing({ title: 'C++ 입문서 (정품)' });
+
+    const literal = await request(server)
+      .get(`/api/products?q=${encodeURIComponent('C++')}`)
+      .expect(200);
+    expect(literal.body.total).toBe(1);
+    expect(literal.body.items[0]?.title).toBe('C++ 입문서 (정품)');
+
+    const pattern = await request(server)
+      .get(`/api/products?q=${encodeURIComponent('.*')}`)
+      .expect(200);
+    expect(pattern.body.total).toBe(0);
+    expect(pattern.body.items).toEqual([]);
+  });
+
+  it('treats an empty q as no filter at all (A3: 빈 검색어는 오류 아님)', async () => {
+    const unfiltered = await request(server).get('/api/products').expect(200);
+    const emptyQ = await request(server).get('/api/products?q=').expect(200);
+    expect(emptyQ.body.total).toBe(unfiltered.body.total);
+  });
 });

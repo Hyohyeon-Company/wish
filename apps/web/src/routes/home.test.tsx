@@ -278,20 +278,19 @@ describe('entries to /search (A3/A4 destinations)', () => {
     return fetchImpl;
   }
 
-  it('submits a keyword to /search?q=… — the C4 destination returns to the feed for now', async () => {
+  it('submits a keyword to /search?q=… and search-v1 renders there (C4)', async () => {
     const user = userEvent.setup();
     renderFeedWithSpy();
     await screen.findByText('아직 상품이 없어요');
     await user.type(screen.getByLabelText('상품 검색'), '아이패드');
     await user.keyboard('{Enter}');
-    // The §2-3 query destination is /search (A3); search-v1 renders in C4.
-    // Until then the §3-공개 destination policy returns the visitor to the
-    // feed rather than a wrong login redirect — asserted here so the entry
-    // really navigates (a dead control would keep the URL untouched only by
-    // accident), and C4 replaces this observation.
+    // The §2-3 query destination is /search (A3); search-v1 renders there
+    // since C4. The mock's empty result shows the AC2.4 empty composer.
     await waitFor(() => {
-      expect(window.location.pathname).toBe('/');
+      expect(window.location.pathname).toBe('/search');
+      expect(window.location.search).toBe(`?q=${encodeURIComponent('아이패드')}`);
     });
+    expect(await screen.findByText('검색 결과가 없어요.')).toBeTruthy();
   });
 
   it('treats an empty keyword as a no-op, not an error (A3)', async () => {
@@ -310,7 +309,13 @@ describe('entries to /search (A3/A4 destinations)', () => {
     await screen.findByText('아직 상품이 없어요');
     await user.click(screen.getByRole('link', { name: '디지털' }));
     await waitFor(() => {
-      expect(window.location.pathname).toBe('/');
+      expect(window.location.pathname).toBe('/search');
+      expect(window.location.search).toBe('?category=digital');
     });
+    // C4 renders search-v1: the chip is marked selected there.
+    expect(
+      await screen.findByRole('link', { name: '디지털' }),
+    ).toBeTruthy();
+    expect(screen.getByRole('link', { name: '디지털' }).getAttribute('aria-current')).toBe('true');
   });
 });
