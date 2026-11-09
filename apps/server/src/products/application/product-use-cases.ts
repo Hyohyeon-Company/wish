@@ -8,10 +8,11 @@ import { randomUUID } from 'node:crypto';
 import type { Member, MemberRepository } from '../../members/domain/member';
 import { DomainError } from '../../shared/domain-error';
 import { listCategories } from '../../catalog/domain/category';
-import { Product, type ProductRepository, type ProductSnapshot } from '../domain/product';
+import { Product, parseStatusField, type ProductRepository, type ProductSnapshot } from '../domain/product';
 import {
   ProductListingQuery,
 } from '../domain/product-listing';
+import { MyProductsQuery } from '../domain/my-products-query';
 import {
   parseImageMetadata,
   extensionFor,
@@ -257,7 +258,157 @@ export class ReadProductDetail {
   }
 }
 
-/** thumbnail은 sort_order 최소 이미지; 없으면 null (클라가 플레이스홀더 렌더). */
+// ---------------------------------------------------------------------------
+// Product status change (§2-3 PATCH /api/products/{id}/status, card C7)
+// ---------------------------------------------------------------------------
+
+export class ChangeProductStatus {
+  constructor(
+    private readonly products: ProductRepository,
+    private readonly now: () => Date = () => new Date(),
+  ) {}
+
+  /**
+   * B10: `actor` is the authenticated principal (the guard's member — never
+   * body input). The rules fire in contract order: 404 (없음·삭제됨), 403
+   * (본인 아님, AC7.1), 400 (unknown status field / 전이표 밖 전이,
+   * AC7.2), then the conditional write whose lost race is the contract's
+   * 409 동시 변경 경합 (§2-5-5 recorded decision). A lost race against a
+   * concurrent DELETION re-reads and reports the deletion as the 404 it
+   * now is, not a misleading conflict.
+   */
+  async execute(
+    rawId: unknown,
+    rawBody: Record<string, unknown>,
+    actor: Member,
+  ): Promise<{ product: ProductView }> {
+    const status = parseStatusField(rawBody.status);
+    const product =
+      typeof rawId === 'string' && rawId.length > 0 ? await this.products.findById(rawId) : null;
+    if (product === null || product.isDeleted()) {
+      throw productMissing();
+    }
+    if (product.sellerId !== actor.id) {
+      throw new DomainError('FORBIDDEN', '본인의 상품만 변경할 수 있어요.');
+    }
+    const changed = product.changeStatus(status, this.now());
+    const saved = await this.products.trySave(changed, product.snapshotVersion());
+    if (!saved) {
+      const current = await this.products.findById(product.id);
+      if (current === null || current.isDeleted()) throw productMissing();
+      throw new DomainError(
+        'CONFLICT',
+        '다른 변경이 먼저 반영되었어요. 새로고침 후 다시 시도해 주세요.',
+      );
+    }
+    // The actor IS the seller here — ownership was just enforced — so the
+    // projection needs no second member lookup.
+    return { product: toProductView(changed, actor) };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Product deletion (§2-3 DELETE /api/products/{id}, card C7)
+// ---------------------------------------------------------------------------
+
+/**
+ * Transaction boundary of deletion (AC6.2): the soft-deleted product write
+ * and the favorite cleanup must land together or not at all. The port lives
+ * with its consumer; each environment's adapter owns the atomicity shape
+ * (sequential unit here, BEGIN/COMMIT in a SQL adapter).
+ */
+export abstract class ProductDeletionTransaction {
+  abstract run(work: () => Promise<void>): Promise<void>;
+}
+
+/**
+ * The AC6.2 cleanup seam: the deletion use case removes every favorite of
+ * the dying product inside the same transaction. Implemented by the
+ * favorites slice's repository adapter (favorite-repository.cleanup.ts).
+ */
+export abstract class ProductFavoriteCleanup {
+  abstract removeAllForProduct(productId: string): Promise<number>;
+}
+
+export class DeleteProduct {
+  constructor(
+    private readonly products: ProductRepository,
+    private readonly favorites: ProductFavoriteCleanup,
+    private readonly transactions: ProductDeletionTransaction,
+    private readonly now: () => Date = () => new Date(),
+  ) {}
+
+  /**
+   * B12: 204 — the listing leaves 목록·검색·상세 immediately (soft
+   * deletion, §6 deleted_at) and its 찜 rows are cleaned in the same
+   * transaction (AC6.2: the favorites list must not keep a dead row).
+   * 404 is NOT idempotent success here — a repeated DELETE observes the
+   * contract's error (삭제는 멱등 아님, 오류로 관찰). A lost version race
+   * re-reads: a concurrent deletion surfaces as its own 404, any other
+   * concurrent write as the 409 conflict.
+   */
+  async execute(rawId: unknown, actor: Member): Promise<void> {
+    const product =
+      typeof rawId === 'string' && rawId.length > 0 ? await this.products.findById(rawId) : null;
+    if (product === null || product.isDeleted()) {
+      throw productMissing();
+    }
+    if (product.sellerId !== actor.id) {
+      throw new DomainError('FORBIDDEN', '본인의 상품만 삭제할 수 있어요.');
+    }
+    const deleted = product.markDeleted(this.now());
+    const expectedVersion = product.snapshotVersion();
+    let saved = false;
+    await this.transactions.run(async () => {
+      saved = await this.products.trySave(deleted, expectedVersion);
+      if (saved) {
+        await this.favorites.removeAllForProduct(product.id);
+      }
+    });
+    if (!saved) {
+      const current = await this.products.findById(product.id);
+      if (current === null || current.isDeleted()) throw productMissing();
+      throw new DomainError(
+        'CONFLICT',
+        '다른 변경이 먼저 반영되었어요. 새로고침 후 다시 시도해 주세요.',
+      );
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// My products (§2-4 GET /api/me/products, card C7)
+// ---------------------------------------------------------------------------
+
+export class ListMyProducts {
+  constructor(private readonly products: ProductRepository) {}
+
+  /**
+   * B9: the seller's own listings with their status — the my-v1 관리
+   * section's data source. The member is the authenticated principal; the
+   * adapter excludes other sellers' rows AND deleted ones, so 타인의 상품은
+   * 부재 (AC8.1's precondition) and a just-deleted row leaves the list.
+   */
+  async execute(rawQuery: Record<string, unknown>, member: Member): Promise<ProductListPage> {
+    const query = MyProductsQuery.parse(rawQuery);
+    const page = await this.products.listBySeller(member.id, query);
+    return {
+      items: page.items.map((product) => toProductCardView(product)),
+      total: page.total,
+      page: query.page,
+      limit: query.limit,
+    };
+  }
+}
+
+/** The NOT_FOUND shared with the detail contract: 존재하지 않음·삭제됨. */
+export function productMissing(): DomainError {
+  return new DomainError(
+    'NOT_FOUND',
+    '상품을 찾을 수 없어요. 삭제되었거나 만료된 상품일 수 있어요.',
+  );
+}
+
 export function toProductCardView(product: Product): ProductCardView {
   const snapshot: ProductSnapshot = product.toSnapshot();
   const thumbnail =

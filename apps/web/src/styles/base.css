@@ -1460,3 +1460,141 @@ a:hover {
     padding: 0 var(--space-4);
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * C7: seller 상태 변경 + 삭제 UI (B10~B12), design-system-v1 tokens only.
+ * ------------------------------------------------------------------------- */
+
+/* 판매자 상태 변경 입구 (detail + my rows): ghost buttons on the surface. */
+.status-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.status-action {
+  height: 36px;
+  padding: 0 var(--space-3);
+  font-size: var(--fs-sm);
+}
+
+.detail .seller-tools {
+  margin-top: var(--space-3);
+}
+
+/* B12: 파괴적 액션 — --danger 텍스트 버튼. */
+.text-danger {
+  appearance: none;
+  background: none;
+  border: none;
+  padding: var(--space-2) 0;
+  color: var(--danger);
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  border-radius: var(--radius-button);
+}
+
+.text-danger.armed {
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.text-danger:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* my-v1 내 등록 상품 rows: link + badge + actions as siblings. */
+.my-products {
+  width: min(920px, calc(100vw - var(--space-8)));
+}
+
+.my-products .sec-head {
+  margin-bottom: var(--space-4);
+}
+
+.my-product-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.my-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+}
+
+.my-row.done {
+  opacity: 0.6;
+}
+
+.my-row-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: inherit;
+  text-decoration: none;
+  min-width: 0;
+  flex: 1;
+}
+
+.my-row-thumb {
+  width: 56px;
+  height: 56px;
+  flex: none;
+}
+
+.my-row-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.my-row-body .title {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--text-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.my-row-body .price {
+  font-size: var(--fs-md);
+  font-weight: 700;
+  color: var(--text-1);
+}
+
+.my-row-body .meta {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.my-row-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-1);
+  flex: none;
+}
+
+@media (max-width: 767px) {
+  .my-products {
+    width: 100%;
+    padding: 0 var(--space-4);
+  }
+}

@@ -195,7 +195,7 @@ describe('placeholder landing route (C3 update)', () => {
     window.history.replaceState(null, '', '/my');
     const fetchImpl = vi.fn(async (input: string | URL | Request) => {
       const url = String(input);
-      if (url.startsWith('/api/favorites')) {
+      if (url.startsWith('/api/favorites') || url.startsWith('/api/me/products')) {
         return jsonResponse(200, { items: [], total: 0, page: 1, limit: 24 });
       }
       return { status: 204, ok: true, text: async () => '' } as unknown as Response;
@@ -234,7 +234,7 @@ describe('placeholder landing route (C3 update)', () => {
     const fetchImpl = vi.fn(async (input: string | URL | Request) => {
       // The 찜 list loads fine; only the logout call fails — the §3 error is
       // about the logout, not the list.
-      if (String(input).startsWith('/api/favorites')) {
+      if (String(input).startsWith('/api/favorites') || String(input).startsWith('/api/me/products')) {
         return jsonResponse(200, { items: [], total: 0, page: 1, limit: 24 });
       }
       throw new TypeError('Failed to fetch');

@@ -44,7 +44,7 @@
  * guest's tap answers 401 and the session policy routes to the login screen
  * with a returnTo back to this detail (AC6.3, A7).
  */
-import { useCallback, useEffect, useState, type ReactElement } from 'react';
+import { useCallback, useEffect, useState, useSyncExternalStore, type ReactElement } from 'react';
 import { ApiError, NETWORK_ERROR_MESSAGE, request } from '../lib/api';
 import { authStore } from '../lib/auth';
 import { navigate } from '../lib/router';
@@ -52,6 +52,7 @@ import { formatPrice, formatRelativeTime } from '../lib/time';
 import { STATUS_BADGES } from './home';
 import { CONDITIONS } from './sell';
 import { FavoriteIcon, useFavoriteToggle } from './favorite-button';
+import { StatusChangeActions } from './status-actions';
 
 /** The §2-3 detail product shape (server-projected). */
 export interface DetailProduct {
@@ -80,7 +81,11 @@ export function DetailPage({ productId }: { productId: string }): ReactElement {
   const [detail, setDetail] = useState<DetailResponse | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [favoriteError, setFavoriteError] = useState<string | null>(null);
+  const [statusError, setStatusError] = useState<string | null>(null);
   const [imageIndex, setImageIndex] = useState(0);
+  // The seller's status-change entry is a session-dependent UI branch; the
+  // snapshot subscribes so a login completing in another frame still shows it.
+  const auth = useSyncExternalStore(authStore.subscribe, authStore.getState);
 
   const load = useCallback(async (): Promise<void> => {
     setPhase('loading');
@@ -154,6 +159,16 @@ export function DetailPage({ productId }: { productId: string }): ReactElement {
           imageIndex={imageIndex}
           onSelectImage={setImageIndex}
           onFavoriteError={setFavoriteError}
+          viewerId={auth.member?.id ?? null}
+          onStatusChanged={(nextStatus) => {
+            // AC7.3: 배지는 서버의 답으로 즉시 재렌더 — local guessing 없음.
+            setDetail((current) =>
+              current === null
+                ? current
+                : { ...current, product: { ...current.product, status: nextStatus } },
+            );
+          }}
+          onStatusError={setStatusError}
         />
       )}
 
@@ -174,6 +189,15 @@ export function DetailPage({ productId }: { productId: string }): ReactElement {
           </button>
         </div>
       )}
+
+      {statusError !== null && (
+        <div className="toast" role="alert">
+          <span>{statusError}</span>
+          <button className="toast-retry" type="button" onClick={() => setStatusError(null)}>
+            확인
+          </button>
+        </div>
+      )}
     </>
   );
 }
@@ -183,11 +207,18 @@ function DetailBody({
   imageIndex,
   onSelectImage,
   onFavoriteError,
+  viewerId,
+  onStatusChanged,
+  onStatusError,
 }: {
   detail: DetailResponse;
   imageIndex: number;
   onSelectImage: (index: number) => void;
   onFavoriteError: (message: string) => void;
+  /** 로그인 viewer의 member id (비로그인 null) — 판매자 본인 판정에만 사용. */
+  viewerId: string | null;
+  onStatusChanged: (nextStatus: string) => void;
+  onStatusError: (message: string) => void;
 }): ReactElement {
   const { product } = detail;
   const badge = STATUS_BADGES[product.status] ?? null;
@@ -290,6 +321,20 @@ function DetailBody({
         <div className="cta-row" role="group" aria-label="상품 액션">
           {favoriteIcon('찜하기')}
         </div>
+
+        {/* C7 (B10): the seller's own 상태 변경 입구 — hidden for guests and
+            for non-sellers (403은 정상 UI 경로에 없음, §3). 거래완료는 종착
+            상태라 아무 것도 렌더되지 않는다 (B11). */}
+        {viewerId !== null && viewerId === product.seller.id && (
+          <div className="seller-tools">
+            <StatusChangeActions
+              productId={product.id}
+              status={product.status}
+              onChanged={onStatusChanged}
+              onError={onStatusError}
+            />
+          </div>
+        )}
       </section>
       </main>
 
