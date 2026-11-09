@@ -158,6 +158,14 @@ a:hover {
   text-align: center;
 }
 
+.auth-footer a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  vertical-align: middle;
+  color: var(--brand-strong);
+}
+
 /* --- minimal authenticated landing (not home-v1; C3 owns the feed) --- */
 
 .landing {
@@ -553,6 +561,9 @@ a:hover {
 }
 
 .logo {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   font-size: var(--fs-2xl);
   font-weight: 700;
   letter-spacing: -0.02em;
