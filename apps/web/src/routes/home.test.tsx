@@ -116,6 +116,24 @@ describe('product card rendering (AC1.1, AC1.4)', () => {
       if (feedUrl(url)) {
         return jsonResponse(200, { items: CARDS, total: 4, page: 1, limit: 24 });
       }
+      if (url === '/api/products/p-active') {
+        return jsonResponse(200, {
+          product: {
+            id: 'p-active',
+            title: '아이패드 에어 5세대 64기가',
+            description: '설명',
+            price: 580000,
+            category_code: 'digital',
+            condition: 'like_new',
+            region: '사당동',
+            status: 'ACTIVE',
+            created_at: new Date().toISOString(),
+            seller: { id: 'm-1', nickname: '판매자', region: '사당동' },
+            images: [{ url: 'http://localhost:3000/uploads/a.png', sort_order: 1 }],
+          },
+          favorited: null,
+        });
+      }
       if (url.endsWith('/api/categories')) return jsonResponse(200, CATEGORIES);
       return jsonResponse(500, { code: 'INTERNAL', message: 'unexpected' });
     });
@@ -156,17 +174,16 @@ describe('product card rendering (AC1.1, AC1.4)', () => {
     expect(placeholder.className).toBe('thumb-placeholder');
   });
 
-  it('navigates on card click; the unbuilt detail destination returns to the feed', async () => {
+  it('navigates on card click to the real detail screen (A6, C5)', async () => {
     const user = userEvent.setup();
     renderFeed();
     const cardLink = await screen.findByRole('link', { name: /아이패드 에어 5세대 64기가/ });
     await user.click(cardLink);
-    // The detail screen is C5; until it renders, the §3-공개 destination
-    // policy sends the visitor back to the feed (목록 복귀) instead of a
-    // wrong login redirect. C5 replaces this observation with the real 404/
-    // detail screen.
+    // Since C5 the §3-공개 destination renders detail-v1 at /products/{id};
+    // the stub serves its body so the bound screen is observed, not a
+    // redirect. (The pre-C5 placeholder posture returned to the feed.)
     await waitFor(() => {
-      expect(window.location.pathname).toBe('/');
+      expect(window.location.pathname).toBe('/products/p-active');
     });
   });
 });

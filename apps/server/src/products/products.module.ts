@@ -1,18 +1,22 @@
 import { Module } from '@nestjs/common';
 import {
   CreateProduct,
+  FavoriteLookup,
   ListCategories,
   ListProducts,
+  ReadProductDetail,
   UploadImage,
   ImageStore,
 } from './application/product-use-cases';
 import { ProductRepository } from './domain/product';
+import { MemberRepository } from '../members/domain/member';
 import { CategoriesController } from '../api/categories.controller';
 import { ProductsController } from '../api/products.controller';
 import { UploadedFilesController } from '../api/uploaded-files.controller';
 import { UploadsController } from '../api/uploads.controller';
-import { CurrentMemberGuard } from '../api/current-member.guard';
+import { CurrentMemberGuard, OptionalCurrentMemberGuard } from '../api/current-member.guard';
 import { InMemoryProductRepository } from './infrastructure/in-memory-product.repository';
+import { InMemoryFavoriteReader } from './infrastructure/in-memory-favorite.reader';
 import { LocalImageStore } from './infrastructure/local-image-store';
 import { AuthModule } from '../auth.module';
 
@@ -54,7 +58,18 @@ import { AuthModule } from '../auth.module';
       useFactory: (products: ProductRepository) => new ListProducts(products),
       inject: [ProductRepository],
     },
+    { provide: FavoriteLookup, useClass: InMemoryFavoriteReader },
+    {
+      provide: ReadProductDetail,
+      useFactory: (
+        products: ProductRepository,
+        members: MemberRepository,
+        favorites: FavoriteLookup,
+      ) => new ReadProductDetail(products, members, favorites),
+      inject: [ProductRepository, MemberRepository, FavoriteLookup],
+    },
     CurrentMemberGuard,
+    OptionalCurrentMemberGuard,
   ],
 })
 export class ProductsModule {}
