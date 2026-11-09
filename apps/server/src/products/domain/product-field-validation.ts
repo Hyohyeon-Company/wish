@@ -19,3 +19,31 @@ export class FieldValidation extends DomainError {
 export function fieldFailure(field: string, message: string): never {
   throw new FieldValidation(field, message);
 }
+
+/**
+ * Parses a record of independent fields of any shape and aggregates the
+ * failures into the single contract 400 body. `requireProductFields` is the
+ * sell-form instance of this generic collector; the listing query reuses it
+ * so both request boundaries speak the same error mechanism.
+ */
+export function requireValidFields<T>(
+  read: (collect: <V>(attempt: () => V) => V | undefined) => T,
+): T {
+  const fields: Record<string, string> = {};
+  const collect = <V>(attempt: () => V): V | undefined => {
+    try {
+      return attempt();
+    } catch (error) {
+      if (error instanceof FieldValidation) {
+        fields[error.field] = error.message;
+        return undefined;
+      }
+      throw error;
+    }
+  };
+  const value = read(collect);
+  if (Object.keys(fields).length > 0) {
+    throw new DomainError('VALIDATION_FAILED', '입력값을 확인해 주세요.', fields);
+  }
+  return value;
+}

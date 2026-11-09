@@ -14,6 +14,9 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': 'http://localhost:3000',
+      // Uploaded images are served by the server at /uploads (§2-2 URL
+      // shape); without this dev-only proxy the feed's thumbnails 404.
+      '/uploads': 'http://localhost:3000',
     },
   },
   test: {

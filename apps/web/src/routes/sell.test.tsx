@@ -201,7 +201,11 @@ describe('sell-v1 form (B4~B7)', () => {
     });
     await user.click(screen.getByRole('button', { name: '등록하기' }));
     await waitFor(() => {
-      expect(window.location.pathname).toBe('/products/product-9');
+      // B7/B8: the 201 contract destination is /products/{id}; since C3 the
+      // unbuilt public detail destination returns the visitor to the feed
+      // (§3-공개 policy) until C5 renders detail-v1 — the feed's first card
+      // is then the just-registered product (AC4.3).
+      expect(window.location.pathname).toBe('/');
     });
   });
 

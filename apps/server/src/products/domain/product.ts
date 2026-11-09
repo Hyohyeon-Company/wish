@@ -25,6 +25,7 @@ import {
   requireProductFields,
   parseCategoryCode,
 } from './product-value-objects';
+import type { ProductListingQuery } from './product-listing';
 
 export const PRODUCT_STATUSES = ['ACTIVE', 'RESERVED', 'SOLD'] as const;
 export type ProductStatus = (typeof PRODUCT_STATUSES)[number];
@@ -61,10 +62,22 @@ export interface SellProductInput {
   readonly image_urls: unknown;
 }
 
-/** Persistence boundary of the Product aggregate (adapter per environment). */
+/** One page of the §2-3 GET listing: the matching rows plus the full total. */
+export interface ProductPage {
+  readonly items: readonly Product[];
+  readonly total: number;
+}
+
+/**
+ * Persistence boundary of the Product aggregate (adapter per environment).
+ * `list` serves the §2-3 GET listing; the adapter owns the execution shape
+ * (WHERE/ORDER/OFFSET for a SQL adapter, in-memory filtering here) — the
+ * query value object owns which values are legal.
+ */
 export abstract class ProductRepository {
   abstract save(product: Product): Promise<void>;
   abstract findById(id: string): Promise<Product | null>;
+  abstract list(query: ProductListingQuery): Promise<ProductPage>;
 }
 
 export class Product {

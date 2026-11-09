@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import {
   CreateProduct,
   ListCategories,
+  ListProducts,
   UploadImage,
   ImageStore,
 } from './application/product-use-cases';
@@ -46,6 +47,11 @@ import { AuthModule } from '../auth.module';
     {
       provide: CreateProduct,
       useFactory: (products: ProductRepository) => new CreateProduct(products),
+      inject: [ProductRepository],
+    },
+    {
+      provide: ListProducts,
+      useFactory: (products: ProductRepository) => new ListProducts(products),
       inject: [ProductRepository],
     },
     CurrentMemberGuard,

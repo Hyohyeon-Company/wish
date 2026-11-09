@@ -10,6 +10,9 @@ import { DomainError } from '../../shared/domain-error';
 import { listCategories } from '../../catalog/domain/category';
 import { Product, type ProductRepository, type ProductSnapshot } from '../domain/product';
 import {
+  ProductListingQuery,
+} from '../domain/product-listing';
+import {
   parseImageMetadata,
   extensionFor,
   refuseNonImage,
@@ -152,6 +155,66 @@ export class CreateProduct {
     await this.products.save(product);
     return { product: toProductView(product, seller) };
   }
+}
+
+// ---------------------------------------------------------------------------
+// Product listing (§2-3 GET /api/products)
+// ---------------------------------------------------------------------------
+
+/** The §2-4 ProductCard shape — the feed's minimum unit. */
+export interface ProductCardView {
+  readonly id: string;
+  readonly title: string;
+  readonly price: number;
+  readonly region: string;
+  readonly status: string;
+  readonly created_at: string;
+  readonly thumbnail_url: string | null;
+  readonly condition: string;
+}
+
+export interface ProductListPage {
+  readonly items: readonly ProductCardView[];
+  readonly total: number;
+  readonly page: number;
+  readonly limit: number;
+}
+
+export class ListProducts {
+  constructor(private readonly products: ProductRepository) {}
+
+  /**
+   * The raw query string map is transport input; its legality is decided by
+   * the ProductListingQuery value object (400 with fields), the adapter owns
+   * execution, and this use case only arranges the projection.
+   */
+  async execute(rawQuery: Record<string, unknown>): Promise<ProductListPage> {
+    const query = ProductListingQuery.parse(rawQuery);
+    const page = await this.products.list(query);
+    return {
+      items: page.items.map((product) => toProductCardView(product)),
+      total: page.total,
+      page: query.page,
+      limit: query.limit,
+    };
+  }
+}
+
+/** thumbnail은 sort_order 최소 이미지; 없으면 null (클라가 플레이스홀더 렌더). */
+export function toProductCardView(product: Product): ProductCardView {
+  const snapshot: ProductSnapshot = product.toSnapshot();
+  const thumbnail =
+    [...snapshot.images].sort((a, b) => a.sortOrder - b.sortOrder)[0] ?? null;
+  return {
+    id: snapshot.id,
+    title: snapshot.title,
+    price: snapshot.price,
+    region: snapshot.region,
+    status: snapshot.status,
+    created_at: snapshot.createdAt.toISOString(),
+    thumbnail_url: thumbnail === null ? null : thumbnail.url,
+    condition: snapshot.condition,
+  };
 }
 
 export function toProductView(product: Product, seller: Member): ProductView {

@@ -93,7 +93,10 @@ describe('LoginPage', () => {
     await user.type(screen.getByLabelText('비밀번호'), 'Str0ng-Pass!');
     await user.click(screen.getByRole('button', { name: '로그인' }));
     await waitFor(() => {
-      expect(window.location.pathname).toBe('/products/7');
+      // returnTo=/products/7 is honored as the destination URL; since C3 the
+      // unbuilt public detail destination returns the visitor to the feed
+      // (§3-공개 policy) until C5 renders detail-v1.
+      expect(window.location.pathname).toBe('/');
     });
     expect(authStore.getState().status).toBe('authenticated');
     expect(authStore.getState().member?.nickname).toBe('판매자');
@@ -155,13 +158,16 @@ describe('LoginPage', () => {
   });
 });
 
-describe('authenticated landing route (guest redirect)', () => {
-  it('a guest at / is routed to the login screen with a returnTo reference', async () => {
-    window.history.replaceState(null, '', '/');
+describe('placeholder landing route (C3 update)', () => {
+  it('a guest at an unassigned path is routed to the login screen with a returnTo reference', async () => {
+    // Since C3 the home feed at / is public (AC1.1); the placeholder landing
+    // (logout observation surface until C8's my-v1) keeps the guest redirect
+    // on the paths that are still placeholder-only, /my included.
+    window.history.replaceState(null, '', '/my');
     render(<App />);
     await waitFor(() => {
       expect(window.location.pathname).toBe('/login');
-      expect(window.location.search).toBe('?returnTo=%2F');
+      expect(window.location.search).toBe('?returnTo=%2Fmy');
       expect(screen.getByRole('button', { name: '로그인' })).toBeTruthy();
     });
   });
@@ -178,7 +184,7 @@ describe('authenticated landing route (guest redirect)', () => {
       },
       token: 'tok-1',
     });
-    window.history.replaceState(null, '', '/');
+    window.history.replaceState(null, '', '/my');
     const fetchImpl = vi.fn(async () => ({ status: 204, ok: true, text: async () => '' }) as unknown as Response);
     vi.stubGlobal('fetch', fetchImpl);
     render(<App />);
@@ -206,7 +212,7 @@ describe('authenticated landing route (guest redirect)', () => {
       },
       token: 'tok-1',
     });
-    window.history.replaceState(null, '', '/');
+    window.history.replaceState(null, '', '/my');
     const fetchImpl = vi.fn(async () => {
       throw new TypeError('Failed to fetch');
     });
