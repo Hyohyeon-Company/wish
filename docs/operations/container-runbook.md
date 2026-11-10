@@ -90,9 +90,12 @@ docker compose exec api node dist/db/seed.js
 
 ```bash
 # 1) 회원 1명 + 상품 1건을 API로 만든다
+#    이메일·닉네임은 실행마다 고유해야 한다. mysql 모드는 uq_members_email /
+#    uq_members_nickname을 강제하므로 고정 값을 쓰면 두 번째 실행이 거절된다.
+KEEP_ID=$(date +%s)
 curl -s -X POST http://127.0.0.1:3000/api/auth/signup \
   -H 'content-type: application/json' \
-  -d '{"email":"keep@example.com","password":"Str0ng-Pass!","nickname":"유지확인","region":"서울"}'
+  -d "{\"email\":\"keep-$KEEP_ID@example.com\",\"password\":\"Str0ng-Pass!\",\"nickname\":\"유지확인-$KEEP_ID\",\"region\":\"서울\"}"
 #    응답의 token과 member.id를 기록한다 (SHELL 변수에 저장)
 
 curl -s -X POST http://127.0.0.1:3000/api/products \
@@ -100,9 +103,12 @@ curl -s -X POST http://127.0.0.1:3000/api/products \
   -d '{"title":"재기동 확인 상품","price":1000,"category_code":"furniture","condition":"used","description":"재기동 후에도 남아야 합니다.","region":"서울","image_urls":["https://picsum.photos/seed/keep/640/480"]}'
 
 # 2) DB에 실제로 들어갔는지 확인
-docker compose exec mysql \
-  mysql -u"$WISH_DB_USER" -p"$WISH_DB_PASSWORD" "$WISH_DB_NAME" \
-  -e "SELECT COUNT(*) AS members FROM members; SELECT COUNT(*) AS products FROM products;"
+#    compose는 .env를 호스트 셸로 export하지 않는다. 그래서 호스트의
+#    $WISH_DB_USER/*를 보간하지 않고, 컨테이너에 주입된 MYSQL_USER /
+#    MYSQL_PASSWORD / MYSQL_DATABASE를 컨테이너 안에서 읽어 쓴다.
+docker compose exec -T mysql sh -c \
+  'MYSQL_PWD="$MYSQL_PASSWORD" mysql -u"$MYSQL_USER" "$MYSQL_DATABASE" \
+     -e "SELECT COUNT(*) AS members FROM members; SELECT COUNT(*) AS products FROM products;"'
 
 # 3) API 재기동 후 다시 조회
 docker compose restart api
@@ -133,7 +139,10 @@ WISH_BASE_URL=http://127.0.0.1:4000 node scripts/api-flow-smoke.mjs
 목록 → 상세 → 찜 → 찜 해제 → 내 상품 → 상태 변경 → 삭제 → 로그아웃/토큰 무효화)를
 순서대로 실행하고, 각 단계의 상태 코드와 필수 필드를 단언한다. 실패하면 즉시
 `exit 1`, 마지막에는 JSON 요약(단계별 상태·기대값·실패 사유)을 출력한다. 토큰 값은
-출력하지 않는다. 매 실행마다 새 이메일로 가입하므로 반복 실행해도 충돌하지 않는다.
+출력하지 않는다. 매 실행마다 **이메일과 닉네임 모두** 실행별 접미사가 붙은 새 회원으로
+가입하므로, MySQL 볼륨이 남아 있는 상태에서도 반복 실행이 제약(`uq_members_email`,
+`uq_members_nickname`)에 걸리지 않는다. 두 번째 실행의 2단계 detail에서 직전 실행과
+다른 `email`/`nickname`이 출력되면 정상이다.
 
 ## 6. 정지·재기동·로그
 
@@ -189,7 +198,8 @@ docker volume ls | grep wish   # 볼륨 확인
    ```bash
    docker compose ps mysql                  # healthy인가
    docker compose logs mysql | tail -50     # 초기화 오류·권한 오류
-   docker compose exec mysql mysqladmin -u"$WISH_DB_USER" -p"$WISH_DB_PASSWORD" ping
+   docker compose exec -T mysql sh -c \
+     'MYSQL_PWD="$MYSQL_PASSWORD" mysqladmin -u"$MYSQL_USER" ping'
    ```
    자격 증명을 바꿨다면 **볼륨 초기화가 필요하다** — `MYSQL_USER`/`MYSQL_PASSWORD`는
    볼륨이 비어 있을 때만 적용된다. 로컬 데이터를 버려도 되면 `docker compose down -v`
@@ -231,6 +241,14 @@ docker compose logs -f api      # "wish storage: mysql ..." 로그가 없어야 
   (`down -v`와 무관), 상품 데이터가 남아 있어도 사진은 없어진다. 볼륨 분리는 후속
   슬라이스다.
 - 데모 시드 이미지는 외부 플레이스홀더 URL이며 오프라인 환경에서는 표시되지 않는다.
+- **닉네임 유니크는 mysql 모드에서만 강제된다.** 스키마의 `uq_members_nickname`은
+  `mysql` 모드에서만 적용되므로, 이미 쓰이는 닉네임으로 가입하면 mysql 모드는 400
+  `VALIDATION_FAILED`(`fields.nickname`)로 거절하고 `memory` 모드는 그대로 성공한다.
+  같은 이유로 스모크/확인 절차는 실행마다 고유한 이메일·닉네임을 써야 한다(§4, §5).
+  중복 닉네임의 사용자 노출 오류 문구·상태 코드는 아직 제품 결정 전이다.
+- **레플리카를 2개 이상으로 늘릴 때**는 마이그레이터에 advisory lock이 없어 동시 기동한
+  인스턴스 중 하나가 `schema_migrations` 기본키 충돌로 기동에 실패할 수 있다(데이터
+  손상은 없다). 단일 레플리카 compose 구성에서는 발생하지 않는다.
 - 백업·복구, 운영 배포·모니터링은 이 런북의 범위가 아니다.
 
 ## 10. 에이전트·CI 세션이 docker 그룹에 없을 때

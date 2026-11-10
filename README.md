@@ -41,6 +41,13 @@ pnpm --filter @wish/server start      # WISH_STORAGE defaults to memory
 | `WISH_DB_USER` / `WISH_DB_PASSWORD` / `WISH_DB_NAME` | `wish` / — / `wish` | MySQL credentials |
 | `WISH_DB_MIGRATIONS_DIR` / `WISH_DB_SEED_DIR` | `./db/migrations`, `./db/seed` | SQL locations for host runs |
 
+Nickname uniqueness (`uq_members_nickname`) is a MySQL-schema rule, so a duplicate
+nickname is rejected with 400 `VALIDATION_FAILED` only when `WISH_STORAGE=mysql`;
+the in-memory adapters keep the pre-existing behaviour. Every script or manual
+check that creates members (`scripts/api-flow-smoke.mjs`, the runbook retention
+check) therefore uses a per-run email **and** nickname so it can be repeated
+against a persistent volume.
+
 See `.env.example` and `docs/operations/container-runbook.md` (migrations, seed,
 data-retention checks, failure modes).
 
