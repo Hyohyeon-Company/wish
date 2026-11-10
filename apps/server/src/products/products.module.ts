@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, type Provider } from '@nestjs/common';
 import {
   ChangeProductStatus,
   CreateProduct,
@@ -30,11 +30,60 @@ import { UploadsController } from '../api/uploads.controller';
 import { CurrentMemberGuard, OptionalCurrentMemberGuard } from '../api/current-member.guard';
 import { InMemoryProductRepository } from './infrastructure/in-memory-product.repository';
 import { InMemoryDeletionTransaction } from './infrastructure/in-memory-deletion-transaction';
+import { MysqlProductRepository } from './infrastructure/mysql-product.repository';
+import { MysqlDeletionTransaction } from './infrastructure/mysql-deletion-transaction';
 import { InMemoryFavoriteRepository } from '../favorites/infrastructure/in-memory-favorite.repository';
+import { MysqlFavoriteRepository } from '../favorites/infrastructure/mysql-favorite.repository';
 import { FavoriteRepositoryLookup } from '../favorites/infrastructure/favorite-repository.lookup';
 import { FavoriteRepositoryCleanup } from '../favorites/infrastructure/favorite-repository.cleanup';
 import { LocalImageStore } from './infrastructure/local-image-store';
+import { MysqlModule } from '../infrastructure/mysql/mysql.module';
+import { SqlClient } from '../infrastructure/mysql/sql-client';
+import { storageModeFromEnv } from '../infrastructure/storage/storage-mode';
 import { AuthModule } from '../auth.module';
+
+const STORAGE_MODE = storageModeFromEnv();
+
+/**
+ * The three persistence ports of this slice switch together: the product
+ * store, the favorites store and the deletion transaction must all point at
+ * the same backend, or the AC6.2 cleanup would touch a different store than
+ * the product write. Image storage is intentionally untouched — uploads stay
+ * local-disk in v1 (recorded decision, user-flow §2-5-3).
+ */
+function productRepositoryProvider(): Provider {
+  if (STORAGE_MODE === 'mysql') {
+    return {
+      provide: ProductRepository,
+      useFactory: (client: SqlClient) => new MysqlProductRepository(client),
+      inject: [SqlClient],
+    };
+  }
+  return { provide: ProductRepository, useClass: InMemoryProductRepository };
+}
+
+function favoriteRepositoryProvider(): Provider {
+  if (STORAGE_MODE === 'mysql') {
+    return {
+      provide: FavoriteRepository,
+      useFactory: (client: SqlClient) => new MysqlFavoriteRepository(client),
+      inject: [SqlClient],
+    };
+  }
+  return { provide: FavoriteRepository, useClass: InMemoryFavoriteRepository };
+}
+
+function deletionTransactionProvider(): Provider {
+  if (STORAGE_MODE === 'mysql') {
+    return {
+      provide: ProductDeletionTransaction,
+      useFactory: (client: SqlClient) => new MysqlDeletionTransaction(client),
+      inject: [SqlClient],
+    };
+  }
+  return { provide: ProductDeletionTransaction, useClass: InMemoryDeletionTransaction };
+}
+
 
 /**
  * The sell/catalog slice. CurrentMemberGuard is declared here too — the
@@ -43,7 +92,7 @@ import { AuthModule } from '../auth.module';
  * it depends on.
  */
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, MysqlModule],
   controllers: [
     CategoriesController,
     UploadsController,
@@ -53,7 +102,7 @@ import { AuthModule } from '../auth.module';
     UploadedFilesController,
   ],
   providers: [
-    { provide: ProductRepository, useClass: InMemoryProductRepository },
+    productRepositoryProvider(),
     { provide: ImageStore, useClass: LocalImageStore },
     // Explicit factories: the use cases stay framework-free (no @Injectable),
     // mirroring the auth module's wiring.
@@ -80,7 +129,7 @@ import { AuthModule } from '../auth.module';
     // side (FavoriteRepository) and the detail's favorited personalization
     // (FavoriteLookup port — card C6 replaced the C5-time false stub behind
     // the same port, without touching ReadProductDetail or the contract).
-    { provide: FavoriteRepository, useClass: InMemoryFavoriteRepository },
+    favoriteRepositoryProvider(),
     {
       provide: FavoriteLookup,
       useFactory: (favorites: FavoriteRepository) => new FavoriteRepositoryLookup(favorites),
@@ -121,7 +170,7 @@ import { AuthModule } from '../auth.module';
       useFactory: (products: ProductRepository) => new ChangeProductStatus(products),
       inject: [ProductRepository],
     },
-    { provide: ProductDeletionTransaction, useClass: InMemoryDeletionTransaction },
+    deletionTransactionProvider(),
     {
       provide: ProductFavoriteCleanup,
       useFactory: (favorites: FavoriteRepository) => new FavoriteRepositoryCleanup(favorites),
