@@ -45,3 +45,62 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Execute common checks
         run: node .team/run-ci.mjs
+
+      # ---------------------------------------------------------------------
+      # Container gate (F2 of the container follow-up Issue).
+      #
+      # The Dockerfile is part of the deployable surface, and its permission
+      # defect (a COPY that inherits the checkout's restrictive file modes and
+      # leaves the non-root runtime unable to read package.json) is invisible to
+      # the pnpm checks above: they run as the checkout user, not as uid 10001.
+      # This gate builds the image, starts the composed service and requires the
+      # healthcheck endpoint to answer 200.
+      # ---------------------------------------------------------------------
+      # docker/setup-buildx-action v4.4.1 — full commit SHA verified with
+      # `git ls-remote https://github.com/docker/setup-buildx-action
+      # refs/tags/v4.4.1` and a depth-1 fetch of that commit, 2026-11-10.
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      # A GitHub-hosted checkout materializes every file 0644, which would hide
+      # the mode-inheritance defect the Dockerfile guards against. Rewriting the
+      # tracked files to 0600 reproduces a restrictive-umask checkout: Docker
+      # COPY carries those modes into the image, so this job fails unless the
+      # Dockerfile normalizes them.
+      - name: Emulate a restrictive-umask checkout for the container build
+        run: |
+          umask 0077
+          git ls-files -z | xargs -0 chmod 0600
+      # docker/build-push-action v7.4.0 — full commit SHA verified the same way,
+      # 2026-11-10.
+      - name: Build the API image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: apps/server/Dockerfile
+          tags: wish-api:local
+          load: true
+          # The dependency-install layers dominate the build time and change
+          # rarely; the GitHub Actions cache keeps the gate to a few minutes.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Start the composed API and require GET /api/categories 200
+        run: |
+          set -euo pipefail
+          docker compose -p wish-ci up -d --no-build --wait --wait-timeout 120
+          for attempt in $(seq 1 30); do
+            status=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 \
+              http://127.0.0.1:3000/api/categories || true)
+            if [ "$status" = "200" ]; then
+              echo "GET /api/categories -> 200 (attempt ${attempt})"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "GET /api/categories did not return 200 within the deadline" >&2
+          docker compose -p wish-ci ps >&2 || true
+          exit 1
+      - name: Container logs on failure
+        if: failure()
+        run: docker compose -p wish-ci logs --no-color || true
+      - name: Stop the composed API
+        if: always()
+        run: docker compose -p wish-ci down --volumes || true

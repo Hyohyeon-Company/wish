@@ -18,6 +18,7 @@
  *
  * Environment:
  *   WISH_BASE_URL            API origin (default http://127.0.0.1:3000)
+ *   WISH_API_PORT            host port the API publishes 3000 on (default 3000)
  *   WISH_SMOKE_TIMEOUT_MS    per-request timeout in ms (default 10000)
  *
  * Exit codes: 0 = all 12 steps passed, 1 = a step failed or the API was
@@ -25,6 +26,12 @@
  */
 
 const BASE_URL = (process.env.WISH_BASE_URL ?? 'http://127.0.0.1:3000').replace(/\/+$/, '');
+// Client-visible origin of uploaded images. It follows the published host port
+// instead of a literal, so overriding WISH_API_PORT cannot silently store an
+// unreachable http://localhost:3000 URL.
+const API_PORT = (process.env.WISH_API_PORT ?? '3000').trim();
+const IMAGE_ORIGIN = `http://localhost:${API_PORT}`;
+const SMOKE_IMAGE_URL = `${IMAGE_ORIGIN}/uploads/smoke-fixture.png`;
 const REQUEST_TIMEOUT_MS = Number.parseInt(process.env.WISH_SMOKE_TIMEOUT_MS ?? '10000', 10);
 const STARTED_AT = new Date();
 
@@ -201,7 +208,7 @@ async function runFlow() {
         condition: 'used',
         description: '컨테이너 API 흐름 스모크에서 생성한 상품입니다.',
         region: '사당동',
-        image_urls: ['http://localhost:3000/uploads/smoke-fixture.png'],
+        image_urls: [SMOKE_IMAGE_URL],
       },
     });
     trace('POST', '/api/products', response.status, 201);
@@ -216,6 +223,21 @@ async function runFlow() {
     assert(
       response.body.product.status === 'ACTIVE',
       `신규 상품 상태가 ACTIVE가 아니라 ${response.body.product.status}입니다`,
+    );
+    // The stored image URL must stay on the published host port. The payload
+    // above is built from WISH_API_PORT, so a hardcoded origin (the old
+    // http://localhost:3000 literal) is caught here when the port is
+    // overridden, instead of being stored silently as an unreachable URL.
+    const storedImageUrl = response.body.product.images?.[0]?.url;
+    let storedPort = null;
+    try {
+      storedPort = new URL(storedImageUrl).port;
+    } catch {
+      storedPort = null;
+    }
+    assert(
+      storedPort === API_PORT,
+      `저장된 대표 이미지 URL의 포트가 ${API_PORT}(WISH_API_PORT)가 아닙니다: ${JSON.stringify(storedImageUrl)}`,
     );
     state.productId = response.body.product.id;
     return { product_id: state.productId, status: response.body.product.status };
