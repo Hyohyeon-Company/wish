@@ -78,6 +78,14 @@ RUN pnpm install --frozen-lockfile --prod --filter @wish/server \
 # not from the host context, so it is already world-readable.
 COPY --from=build /app/apps/server/dist apps/server/dist
 
+# SQL migrations and the demo seed travel with the image: the API migrates at
+# startup (WISH_STORAGE=mysql) and `node dist/db/seed.js` seeds demo data.
+# `chmod -R a+rX` normalizes the modes for the non-root runtime user — the same
+# host-umask problem the manifest COPYs above solve with --chmod (a 0077
+# checkout would otherwise ship a 0600/0700 db/ tree).
+COPY db db
+RUN chmod -R a+rX /app/db
+
 # Fixed uid/gid so a bind-mounted upload directory has a stable owner.
 # UPLOAD_DIR defaults to ./data/uploads relative to the working directory, so
 # the runtime user must own that path for POST /api/uploads to succeed.
