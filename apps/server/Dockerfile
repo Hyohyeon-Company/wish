@@ -26,9 +26,16 @@ WORKDIR /app
 
 # Only the workspace manifests are needed to resolve the lockfile; both
 # workspace importers must be present or `--frozen-lockfile` rejects the tree.
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
-COPY apps/server/package.json apps/server/package.json
-COPY apps/web/package.json apps/web/package.json
+# `--chmod=644` normalizes the modes: COPY without it inherits the build
+# context's file modes, which follow the checkout host's umask (a 0077
+# checkout yields 0600 and breaks the non-root runtime user below).
+# The package directories are created up front because a COPY destination that
+# does not exist is created implicitly *with the --chmod mode*, which leaves
+# apps/ and apps/server/ owner-only (0744) and blocks traversal for `wish`.
+RUN mkdir -p apps/server apps/web
+COPY --chmod=644 pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY --chmod=644 apps/server/package.json apps/server/package.json
+COPY --chmod=644 apps/web/package.json apps/web/package.json
 
 # Dev dependencies are required here: @wish/server builds with `tsc`.
 RUN pnpm install --frozen-lockfile --filter @wish/server
@@ -53,12 +60,22 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
-COPY apps/server/package.json apps/server/package.json
-COPY apps/web/package.json apps/web/package.json
+# Same mode normalization as the build stage: these manifests stay in the
+# final image, and `wish` (uid 10001) must read the workspace root
+# package.json at startup — `node apps/server/dist/main.js` resolves it from
+# /app/apps/server upward. Root-owned 0644 is enough; no chown is needed.
+# The package directories must exist here too: otherwise COPY creates them
+# owner-only (0744), `wish` cannot traverse apps/, and Node fails with
+# "Cannot find module '/app/apps/server/dist/main.js'".
+RUN mkdir -p apps/server apps/web
+COPY --chmod=644 pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY --chmod=644 apps/server/package.json apps/server/package.json
+COPY --chmod=644 apps/web/package.json apps/web/package.json
 RUN pnpm install --frozen-lockfile --prod --filter @wish/server \
  && pnpm store prune
 
+# Build output is produced inside the build stage (default container umask),
+# not from the host context, so it is already world-readable.
 COPY --from=build /app/apps/server/dist apps/server/dist
 
 # Fixed uid/gid so a bind-mounted upload directory has a stable owner.
