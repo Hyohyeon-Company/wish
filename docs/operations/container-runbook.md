@@ -92,7 +92,9 @@ docker compose exec api node dist/db/seed.js
 # 1) 회원 1명 + 상품 1건을 API로 만든다
 #    이메일·닉네임은 실행마다 고유해야 한다. mysql 모드는 uq_members_email /
 #    uq_members_nickname을 강제하므로 고정 값을 쓰면 두 번째 실행이 거절된다.
-KEEP_ID=$(date +%s)
+#    초 단위 시각만 쓰면 같은 초에 두 번 실행할 때 충돌하므로 임의 접미사를 붙인다
+#    (닉네임 20자 제한 안에 들어오도록 총 14자로 유지).
+KEEP_ID="$(date +%s)$(printf '%04d' $((RANDOM % 10000)))"
 curl -s -X POST http://127.0.0.1:3000/api/auth/signup \
   -H 'content-type: application/json' \
   -d "{\"email\":\"keep-$KEEP_ID@example.com\",\"password\":\"Str0ng-Pass!\",\"nickname\":\"유지확인-$KEEP_ID\",\"region\":\"서울\"}"
@@ -113,7 +115,9 @@ docker compose exec -T mysql sh -c \
 # 3) API 재기동 후 다시 조회
 docker compose restart api
 sleep 5
-curl -s 'http://127.0.0.1:3000/api/products?q=재기동' | head -c 300
+curl -s -G --data-urlencode 'q=재기동' http://127.0.0.1:3000/api/products | head -c 300
+#    주의: 검색어를 URL에 그대로 붙이면(`?q=재기동`) 비ASCII 바이트 때문에 Node HTTP
+#    파서가 400으로 거절한다. 위처럼 --data-urlencode로 인코딩해야 200이 온다.
 #    → 같은 상품이 계속 보이면 유지 확인 성공
 ```
 
