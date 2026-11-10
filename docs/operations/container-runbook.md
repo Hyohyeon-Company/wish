@@ -85,17 +85,36 @@ DB도 마이그레이션도 없으므로 다음은 모두 데이터를 잃는다
 2. **컨테이너가 계속 재시작** — `docker compose logs api`에서 스택 트레이스 확인.
    포트 바인딩 오류라면 호스트에서 이미 3000을 쓰는 프로세스가 있는지 확인하고
    `WISH_API_PORT`를 바꾼다.
-3. **`unhealthy`** — 컨테이너 안에서 직접 확인한다.
+3. **`permission denied` / `ERR_INVALID_PACKAGE_CONFIG`** — 컨테이너가 시작 직후
+   `ExitCode=1`로 재시작을 반복하고 로그에
+   `Cannot read package config /app/package.json: permission denied`가 보이면,
+   이미지 안 매니페스트 모드가 비루트 사용자 `wish`(10001)에게 읽히지 않는 상태다.
+   원인은 `COPY`가 빌드 컨텍스트의 파일 모드를 그대로 상속하기 때문이다. 체크아웃
+   호스트의 umask가 0077이면 `package.json`·`apps/server/package.json` 등이
+   이미지에 `0600 root:root`로 들어간다(정상 정의는 `COPY --chmod=644`로 모드를
+   정규화하므로 이 증상이 나오지 않는다).
+
+   이미지 안 모드부터 확인한다.
+   ```bash
+   docker run --rm --entrypoint sh wish-api:local -c 'ls -l /app/package.json'
+   # 0600 root:root  ⇒ 원인 확정 (0644여야 정상)
+   ```
+
+   조치: `apps/server/Dockerfile`의 매니페스트 `COPY`(빌드 단계·런타임 단계 모두)에
+   `--chmod=644`가 있는지 확인하고, 없으면 추가한 뒤 `docker compose build --no-cache api`
+   로 다시 빌드한다. **호스트 체크아웃을 `chmod`로 고치는 것은 해결이 아니다** —
+   이미지가 자기 모드를 보장해야 다른 클론·CI에서도 기동한다.
+4. **`unhealthy`** — 컨테이너 안에서 직접 확인한다.
    ```bash
    docker compose exec api node -e "fetch('http://127.0.0.1:3000/api/categories').then(r=>{console.log(r.status);process.exit(0)}).catch(e=>{console.error(e);process.exit(1)})"
    ```
    200이 아님이 확인되면 `docker compose logs api`에서 라우팅·모듈 초기화 오류를
    본다.
-4. **업로드 실패(권한)** — `UPLOAD_DIR`이 비루트 사용자 `wish` 소유인지 확인한다.
+5. **업로드 실패(권한)** — `UPLOAD_DIR`이 비루트 사용자 `wish` 소유인지 확인한다.
    ```bash
    docker compose exec api ls -ld /app/apps/server/data/uploads
    ```
-5. **이미지 pull 실패** — 네트워크 또는 레지스트리 접근 문제다. 추측으로 베이스
+6. **이미지 pull 실패** — 네트워크 또는 레지스트리 접근 문제다. 추측으로 베이스
    이미지를 바꾸지 말고, 사용 가능한 이미지/프록시를 확인한 뒤 근거를 남긴다.
 
 ## 6. 에이전트·CI 세션이 docker 그룹에 없을 때
