@@ -88,6 +88,10 @@ docker compose exec api node dist/db/seed.js
 
 ## 4. 재기동 후 데이터 유지 확인 (완료 기준 확인 절차)
 
+아래 블록은 **위에서부터 그대로 복사해 실행**한다. 각 단계는 성공 여부를 판단할 수
+있도록 HTTP 상태 코드와 id를 출력한다. 토큰은 응답에서 셸 변수로만 꺼내 쓰고
+문서에 값을 적지 않는다(리터럴 토큰을 넣으면 401이 된다).
+
 ```bash
 # 1) 회원 1명 + 상품 1건을 API로 만든다
 #    이메일·닉네임은 실행마다 고유해야 한다. mysql 모드는 uq_members_email /
@@ -95,30 +99,63 @@ docker compose exec api node dist/db/seed.js
 #    초 단위 시각만 쓰면 같은 초에 두 번 실행할 때 충돌하므로 임의 접미사를 붙인다
 #    (닉네임 20자 제한 안에 들어오도록 총 14자로 유지).
 KEEP_ID="$(date +%s)$(printf '%04d' $((RANDOM % 10000)))"
-curl -s -X POST http://127.0.0.1:3000/api/auth/signup \
+HTTP=$(curl -s -o /tmp/wish-signup.json -w '%{http_code}' \
+  -X POST http://127.0.0.1:3000/api/auth/signup \
   -H 'content-type: application/json' \
-  -d "{\"email\":\"keep-$KEEP_ID@example.com\",\"password\":\"Str0ng-Pass!\",\"nickname\":\"유지확인-$KEEP_ID\",\"region\":\"서울\"}"
-#    응답의 token과 member.id를 기록한다 (SHELL 변수에 저장)
+  -d "{\"email\":\"keep-$KEEP_ID@example.com\",\"password\":\"Str0ng-Pass!\",\"nickname\":\"유지확인-$KEEP_ID\",\"region\":\"서울\"}")
+echo "signup http=$HTTP"
+cat /tmp/wish-signup.json; echo
 
-curl -s -X POST http://127.0.0.1:3000/api/products \
+#    응답의 token과 member.id를 SHELL 변수에 저장한다. 이후 인증이 필요한 요청은
+#    이 변수를 헤더에 넣어 보낸다(`-H "authorization: Bearer $TOKEN"`).
+TOKEN=$(jq -r '.token' /tmp/wish-signup.json)
+MEMBER_ID=$(jq -r '.member.id' /tmp/wish-signup.json)
+echo "member=$MEMBER_ID token_length=${#TOKEN}"
+#    token이 비었거나 null이면 가입이 실패한 것이다(위 응답 확인). 그대로 진행하면
+#    다음 요청이 401이 되므로 원인을 가입 응답에서 먼저 찾는다.
+
+HTTP=$(curl -s -o /tmp/wish-product.json -w '%{http_code}' \
+  -X POST http://127.0.0.1:3000/api/products \
   -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
-  -d '{"title":"재기동 확인 상품","price":1000,"category_code":"furniture","condition":"used","description":"재기동 후에도 남아야 합니다.","region":"서울","image_urls":["https://picsum.photos/seed/keep/640/480"]}'
+  -d '{"title":"재기동 확인 상품","price":1000,"category_code":"furniture","condition":"used","description":"재기동 후에도 남아야 합니다.","region":"서울","image_urls":["https://picsum.photos/seed/keep/640/480"]}')
+echo "create product http=$HTTP"
+cat /tmp/wish-product.json; echo
+PRODUCT_ID=$(jq -r '.product.id' /tmp/wish-product.json)
+echo "product=$PRODUCT_ID"
 
 # 2) DB에 실제로 들어갔는지 확인
 #    compose는 .env를 호스트 셸로 export하지 않는다. 그래서 호스트의
 #    $WISH_DB_USER/*를 보간하지 않고, 컨테이너에 주입된 MYSQL_USER /
 #    MYSQL_PASSWORD / MYSQL_DATABASE를 컨테이너 안에서 읽어 쓴다.
+#    시드(§3)를 먼저 실행했다면 products는 12건이 더해진 값이 나온다.
 docker compose exec -T mysql sh -c \
   'MYSQL_PWD="$MYSQL_PASSWORD" mysql -u"$MYSQL_USER" "$MYSQL_DATABASE" \
      -e "SELECT COUNT(*) AS members FROM members; SELECT COUNT(*) AS products FROM products;"'
 
 # 3) API 재기동 후 다시 조회
 docker compose restart api
-sleep 5
-curl -s -G --data-urlencode 'q=재기동' http://127.0.0.1:3000/api/products | head -c 300
+#    재기동 직후에는 헬스체크가 통과할 때까지 요청이 실패할 수 있으므로 기다린다.
+API_CID=$(docker compose ps -q api)
+for _ in $(seq 1 60); do
+  [ "$(docker inspect -f '{{.State.Health.Status}}' "$API_CID")" = "healthy" ] && break
+  sleep 1
+done
+echo "api health=$(docker inspect -f '{{.State.Health.Status}}' "$API_CID")"
+
+#    (a) 1)에서 만든 그 상품이 id로 다시 조회되는지
+HTTP=$(curl -s -o /tmp/wish-after-restart.json -w '%{http_code}' \
+  "http://127.0.0.1:3000/api/products/$PRODUCT_ID")
+echo "product after restart http=$HTTP"
+head -c 300 /tmp/wish-after-restart.json; echo
+
+#    (b) 목록 검색에서도 보이는지
 #    주의: 검색어를 URL에 그대로 붙이면(`?q=재기동`) 비ASCII 바이트 때문에 Node HTTP
 #    파서가 400으로 거절한다. 위처럼 --data-urlencode로 인코딩해야 200이 온다.
-#    → 같은 상품이 계속 보이면 유지 확인 성공
+HTTP=$(curl -s -o /tmp/wish-after-search.json -w '%{http_code}' \
+  -G --data-urlencode 'q=재기동' http://127.0.0.1:3000/api/products)
+echo "search http=$HTTP"
+head -c 300 /tmp/wish-after-search.json; echo
+#    → signup/create 201, DB count 1/1, 두 조회 모두 200 + 같은 상품 JSON이면 유지 확인 성공
 ```
 
 `down` 후 다시 `up` 해도 volume이 남아 있으면 데이터는 유지된다.
