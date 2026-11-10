@@ -1,0 +1,52 @@
+# wish local composition (spec: container definition, 2026-11-10).
+#
+# One service: the NestJS API in apps/server. There is deliberately no database
+# service — the current slices persist through in-memory adapters, so a restart
+# starts from an empty store (see docs/operations/container-runbook.md).
+#
+# The web app is not composed here: apps/web builds to static assets and its
+# hosting is a separate delivery concern, not part of the API smoke flow.
+#
+# Usage:
+#   docker compose up -d --build
+#   docker compose ps
+#   docker compose logs -f api
+#   docker compose down
+#
+# The host port is configurable: WISH_API_PORT=4000 docker compose up -d.
+
+name: wish
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+    image: wish-api:local
+    # 1:1 host:container mapping keeps the client-visible URLs the API returns
+    # (for example /uploads/<name>) valid for a browser on the host.
+    ports:
+      - "${WISH_API_PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      UPLOAD_DIR: /app/apps/server/data/uploads
+    # Readiness is an HTTP 200 on a public, dependency-free endpoint that also
+    # proves the Nest router, the catalog module and the JSON pipeline are up.
+    # `node` is the only binary guaranteed in the runtime image, so the probe
+    # does not rely on wget/curl being installed.
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - >-
+          fetch('http://127.0.0.1:3000/api/categories')
+          .then((response) => process.exit(response.ok ? 0 : 1))
+          .catch(() => process.exit(1))
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    init: true
+    restart: unless-stopped

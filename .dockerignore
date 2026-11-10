@@ -1,0 +1,61 @@
+# Image and build context for the wish containers.
+#
+# The build context is the repository root (the Dockerfile installs the pnpm
+# workspace), so this file keeps VCS metadata, local installs, build output and
+# private runtime state out of the image context. Secrets are never copied into
+# the image; `.env*` is excluded outright.
+
+# Version control and editor state
+.git
+.gitignore
+.github
+.vscode
+.idea
+
+# Local installs and package-manager caches
+node_modules
+**/node_modules
+.pnpm-store
+**/.pnpm-store
+npm-debug.log*
+yarn-error.log*
+
+# Build output and test artifacts
+dist
+**/dist
+build
+**/build
+coverage
+**/coverage
+test-results
+**/test-results
+playwright-report
+**/playwright-report
+
+# Runtime state and uploads are never baked into the image
+data
+**/data
+backups
+**/backups
+
+# Secrets and environment files
+.env
+.env.*
+*.pem
+*.key
+secrets
+**/secrets
+
+# Private team control-plane state
+.hermes
+.omh
+approvals
+artifacts
+TEAM_SETUP.json
+TEAM_CAPABILITIES.json
+
+# Docs are not needed to build or run the API
+docs
+README.md
+*.log
+.DS_Store
