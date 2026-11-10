@@ -1,8 +1,15 @@
-# wish local composition (spec: container definition, 2026-11-10).
+# wish local composition (container definition 2026-11-10 + MySQL data layer).
 #
-# One service: the NestJS API in apps/server. There is deliberately no database
-# service — the current slices persist through in-memory adapters, so a restart
-# starts from an empty store (see docs/operations/container-runbook.md).
+# Two services: the NestJS API (apps/server) and its MySQL 8.4 database.
+# This composition runs the API with `WISH_STORAGE=mysql`, so members, listings,
+# favorites and their status changes live in the `wish-mysql-data` volume and
+# survive `docker compose restart` / `down` + `up`. The API applies pending
+# migrations at startup and refuses to start when MySQL is unreachable — it never
+# falls back to the in-memory adapters (see docs/operations/container-runbook.md).
+#
+# The in-memory adapters remain the application default when WISH_STORAGE is
+# unset (`pnpm --filter @wish/server start`, existing tests); only this
+# composition pins mysql.
 #
 # The web app is not composed here: apps/web builds to static assets and its
 # hosting is a separate delivery concern, not part of the API smoke flow.
@@ -11,13 +18,45 @@
 #   docker compose up -d --build
 #   docker compose ps
 #   docker compose logs -f api
-#   docker compose down
+#   docker compose exec api node dist/db/migrate.js   # inspect / apply migrations
+#   docker compose exec api node dist/db/seed.js      # optional demo data
+#   docker compose down          # containers gone, data volume kept
+#   docker compose down -v       # DESTRUCTIVE: also drops the MySQL volume
 #
 # The host port is configurable: WISH_API_PORT=4000 docker compose up -d.
+# The credentials below are local-development defaults; export WISH_DB_* (or use
+# an env file) for anything beyond a local machine.
 
 name: wish
 
 services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: ${WISH_DB_NAME:-wish}
+      MYSQL_USER: ${WISH_DB_USER:-wish}
+      MYSQL_PASSWORD: ${WISH_DB_PASSWORD:-wish-local-password}
+      MYSQL_ROOT_PASSWORD: ${WISH_DB_ROOT_PASSWORD:-wish-local-root-password}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+    volumes:
+      - wish-mysql-data:/var/lib/mysql
+    # MYSQL_PWD keeps the password out of the probe's argument list.
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          MYSQL_PWD="$$MYSQL_PASSWORD" mysqladmin ping --protocol=tcp
+          -h 127.0.0.1 -u"$$MYSQL_USER" --silent
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 30s
+    restart: unless-stopped
+    # No host port is published: only the api service needs MySQL, over the
+    # compose network. Use `docker compose exec mysql mysql ...` for a shell.
+
   api:
     build:
       context: .
@@ -27,14 +66,29 @@ services:
     # (for example /uploads/<name>) valid for a browser on the host.
     ports:
       - "${WISH_API_PORT:-3000}:3000"
+    depends_on:
+      mysql:
+        condition: service_healthy
     environment:
       NODE_ENV: production
       PORT: "3000"
       UPLOAD_DIR: /app/apps/server/data/uploads
+      # MySQL storage for this composition. WISH_STORAGE=memory brings the old
+      # empty-on-restart behaviour back for a one-off inspection run.
+      WISH_STORAGE: ${WISH_STORAGE:-mysql}
+      WISH_DB_HOST: mysql
+      WISH_DB_PORT: "3306"
+      WISH_DB_USER: ${WISH_DB_USER:-wish}
+      WISH_DB_PASSWORD: ${WISH_DB_PASSWORD:-wish-local-password}
+      WISH_DB_NAME: ${WISH_DB_NAME:-wish}
+      # The image bakes the repository's db/ directory at /app/db.
+      WISH_DB_MIGRATIONS_DIR: /app/db/migrations
+      WISH_DB_SEED_DIR: /app/db/seed
     # Readiness is an HTTP 200 on a public, dependency-free endpoint that also
     # proves the Nest router, the catalog module and the JSON pipeline are up.
     # `node` is the only binary guaranteed in the runtime image, so the probe
-    # does not rely on wget/curl being installed.
+    # does not rely on wget/curl being installed. Migrations run before the
+    # router starts serving, so a healthy API is also a migrated API.
     healthcheck:
       test:
         - CMD
@@ -50,3 +104,6 @@ services:
       start_period: 20s
     init: true
     restart: unless-stopped
+
+volumes:
+  wish-mysql-data:

@@ -23,6 +23,13 @@
  *
  * Exit codes: 0 = all 12 steps passed, 1 = a step failed or the API was
  * unreachable.
+ *
+ * Repeatability: every run registers exactly one new member whose email *and*
+ * nickname carry a per-run suffix. The MySQL schema enforces both
+ * `uq_members_email` and `uq_members_nickname`, so a fixed nickname would make
+ * the second run against a persistent volume fail at step 2 with
+ * 400 VALIDATION_FAILED(fields.nickname). The suffix is short enough to keep
+ * the nickname inside the 20-character domain limit.
  */
 
 const BASE_URL = (process.env.WISH_BASE_URL ?? 'http://127.0.0.1:3000').replace(/\/+$/, '');
@@ -34,6 +41,15 @@ const IMAGE_ORIGIN = `http://localhost:${API_PORT}`;
 const SMOKE_IMAGE_URL = `${IMAGE_ORIGIN}/uploads/smoke-fixture.png`;
 const REQUEST_TIMEOUT_MS = Number.parseInt(process.env.WISH_SMOKE_TIMEOUT_MS ?? '10000', 10);
 const STARTED_AT = new Date();
+
+/**
+ * Per-run identity seed: base36 timestamp (8 chars) + 4 random hex chars.
+ * 12 characters keeps `스모크판매자-<seed>` at 19 characters, under the
+ * 20-character nickname bound, while making two consecutive runs distinct.
+ */
+const RUN_ID = `${Date.now().toString(36)}${Math.random().toString(16).slice(2, 6)}`;
+const RUN_EMAIL = `wish-smoke-${RUN_ID}@example.com`;
+const RUN_NICKNAME = `스모크판매자-${RUN_ID}`;
 
 const steps = [];
 const state = {
@@ -164,12 +180,12 @@ async function runFlow() {
   const categoryCode = steps[0].detail.category_code;
 
   await step(2, 'POST /api/auth/signup → 201, token 존재', async (trace) => {
-    state.email = `wish-smoke-${Date.now()}-${Math.random().toString(16).slice(2, 10)}@example.com`;
+    state.email = RUN_EMAIL;
     const response = await call('POST', '/api/auth/signup', {
       body: {
         email: state.email,
         password: 'Sm0ke-Passw0rd!',
-        nickname: '스모크판매자',
+        nickname: RUN_NICKNAME,
         region: '사당동',
       },
     });
@@ -184,7 +200,7 @@ async function runFlow() {
       '가입 응답의 member.email이 요청한 이메일과 다릅니다',
     );
     state.token = response.body.token;
-    return { email: state.email, member_id: response.body.member.id };
+    return { email: state.email, nickname: RUN_NICKNAME, member_id: response.body.member.id };
   });
 
   await step(3, 'GET /api/auth/me (Bearer) → 200, 가입 이메일 일치', async (trace) => {

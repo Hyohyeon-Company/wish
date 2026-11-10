@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, type Provider } from '@nestjs/common';
 import {
   AuthenticateMember,
   LogInMember,
@@ -9,11 +9,36 @@ import { MemberRepository, PasswordHasher } from './members/domain/member';
 import { AuthController } from './api/auth.controller';
 import { CurrentMemberGuard } from './api/current-member.guard';
 import { InMemoryMemberRepository } from './infrastructure/in-memory-member.repository';
+import { MysqlMemberRepository } from './infrastructure/mysql/mysql-member.repository';
+import { MysqlModule } from './infrastructure/mysql/mysql.module';
+import { SqlClient } from './infrastructure/mysql/sql-client';
+import { storageModeFromEnv } from './infrastructure/storage/storage-mode';
 import { BcryptPasswordHasher } from './infrastructure/bcrypt-password-hasher';
 import {
   DEFAULT_TOKEN_TTL_SECONDS,
   SessionTokenService,
 } from './infrastructure/session-token.service';
+
+const STORAGE_MODE = storageModeFromEnv();
+
+/**
+ * The member store is the only part of the auth slice that changes with
+ * WISH_STORAGE: the port, the use cases and the HTTP contract stay identical.
+ * The mode is read when the module definition is evaluated, i.e. from the
+ * process environment at startup; tests that need the SQL adapter build it
+ * directly instead of re-importing the module with a different env.
+ */
+function memberRepositoryProvider(): Provider {
+  if (STORAGE_MODE === 'mysql') {
+    return {
+      provide: MemberRepository,
+      useFactory: (client: SqlClient) => new MysqlMemberRepository(client),
+      inject: [SqlClient],
+    };
+  }
+  return { provide: MemberRepository, useClass: InMemoryMemberRepository };
+}
+
 
 function tokenTtlSecondsFromEnv(defaultTtl: number): number {
   const raw = process.env.AUTH_TOKEN_TTL_SECONDS;
@@ -26,9 +51,10 @@ function tokenTtlSecondsFromEnv(defaultTtl: number): number {
 }
 
 @Module({
+  imports: [MysqlModule],
   controllers: [AuthController],
   providers: [
-    { provide: MemberRepository, useClass: InMemoryMemberRepository },
+    memberRepositoryProvider(),
     { provide: PasswordHasher, useClass: BcryptPasswordHasher },
     {
       provide: TokenService,
